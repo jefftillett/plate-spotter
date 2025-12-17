@@ -933,11 +933,30 @@ class LicensePlateGame {
             if (mostPlatesCard) {
                 this.setupLongPressForStatsCard(mostPlatesCard);
                 
-                // Load the location address for "Most in One Area"
+                // Load the location address for "Most in One Area" with timeout protection
                 const lat = parseFloat(mostPlatesCard.dataset.lat);
                 const lng = parseFloat(mostPlatesCard.dataset.lng);
                 if (!isNaN(lat) && !isNaN(lng)) {
-                    this.loadLocationAddressForElement('mostPlatesLocation', lat, lng);
+                    const timeoutPromise = new Promise((resolve) => {
+                        setTimeout(() => {
+                            const element = document.getElementById('mostPlatesLocation');
+                            if (element && element.innerHTML.includes('Loading')) {
+                                element.innerHTML = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                            }
+                            resolve();
+                        }, 15000);
+                    });
+                    
+                    Promise.race([
+                        this.loadLocationAddressForElement('mostPlatesLocation', lat, lng),
+                        timeoutPromise
+                    ]).catch(error => {
+                        console.error('Error loading mostPlatesLocation:', error);
+                        const element = document.getElementById('mostPlatesLocation');
+                        if (element) {
+                            element.innerHTML = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                        }
+                    });
                 }
             }
         }, 100);
@@ -1029,18 +1048,31 @@ class LicensePlateGame {
             popup.classList.add('active');
         });
         
-        // Load location address
+        // Load location address with timeout protection
         if (!isNaN(lat) && !isNaN(lng)) {
-            this.geocodeLocation(lat, lng).then(address => {
-                const locationElement = document.getElementById('popupLocation');
-                if (locationElement) {
-                    locationElement.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
-                }
-            }).catch(error => {
+            const timeoutPromise = new Promise((resolve) => {
+                setTimeout(() => {
+                    const locationElement = document.getElementById('popupLocation');
+                    if (locationElement && locationElement.innerHTML.includes('Loading')) {
+                        locationElement.innerHTML = `<i class="fas fa-location-dot"></i> ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                    }
+                    resolve();
+                }, 15000);
+            });
+            
+            Promise.race([
+                this.geocodeLocation(lat, lng).then(address => {
+                    const locationElement = document.getElementById('popupLocation');
+                    if (locationElement) {
+                        locationElement.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
+                    }
+                }),
+                timeoutPromise
+            ]).catch(error => {
                 console.error('Failed to load address:', error);
                 const locationElement = document.getElementById('popupLocation');
                 if (locationElement) {
-                    locationElement.innerHTML = `<i class="fas fa-location-dot"></i> Unknown location`;
+                    locationElement.innerHTML = `<i class="fas fa-location-dot"></i> ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
                 }
             });
         }
@@ -1618,13 +1650,21 @@ class LicensePlateGame {
             </div>
         `;
         
-        // Load addresses for all locations
+        // Load addresses for all locations with proper error handling
         setTimeout(() => {
-            console.log(`Loading addresses for ${stats.locations.length} locations`);
+            console.log(`Starting to load addresses for ${stats.locations.length} locations`);
             stats.locations.forEach((loc, index) => {
-                this.loadLocationAddress(loc.lat, loc.lng, index);
+                console.log(`Queueing location ${index}: ${loc.state}, ${loc.lat}, ${loc.lng}`);
+                this.loadLocationAddress(loc.lat, loc.lng, index).catch(error => {
+                    console.error(`Failed to load address for location ${index}:`, error);
+                    // Ensure we show coordinates on any error
+                    const element = document.getElementById(`location-address-${index}`);
+                    if (element) {
+                        element.innerHTML = `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`;
+                    }
+                });
             });
-        }, 100);
+        }, 200);
     }
 
     // Reverse Geocoding - Generic function using BigDataCloud (free, no API key needed)
@@ -1633,9 +1673,15 @@ class LicensePlateGame {
             console.log(`Geocoding: ${lat}, ${lng}`);
             
             // Use BigDataCloud reverse geocoding API (free, no API key required)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
             const response = await fetch(
-                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
+                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+                { signal: controller.signal }
             );
+            
+            clearTimeout(timeoutId);
             
             if (!response.ok) {
                 console.error(`Geocoding HTTP error: ${response.status}`);
@@ -1645,40 +1691,64 @@ class LicensePlateGame {
             const data = await response.json();
             console.log('Geocoding response:', data);
             
-            // Build a nice address string focusing on city/locality
+            // Build a nice address string focusing on actual city/town names
             let displayAddress = '';
+            let stateProvince = data.principalSubdivision || '';
             
-            // Try to get city/town
-            if (data.city) {
+            // Priority 1: Try to get actual city/town name
+            if (data.city && !data.city.toLowerCase().includes('district')) {
                 displayAddress = data.city;
-            } else if (data.locality) {
+            } else if (data.locality && !data.locality.toLowerCase().includes('district')) {
                 displayAddress = data.locality;
-            } else if (data.localityInfo && data.localityInfo.administrative && data.localityInfo.administrative.length > 0) {
-                // Try to find a city-level administrative area
-                const cityLevel = data.localityInfo.administrative.find(a => a.order >= 6 && a.order <= 8);
-                if (cityLevel) {
-                    displayAddress = cityLevel.name;
-                }
             }
             
-            // Add state/province if available
-            if (data.principalSubdivision) {
-                displayAddress += displayAddress ? `, ${data.principalSubdivision}` : data.principalSubdivision;
-            }
-            
-            // If still no address, fall back to county
+            // Priority 2: Look through administrative levels for a city (order 8-9)
             if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
-                const countyLevel = data.localityInfo.administrative.find(a => a.order >= 4 && a.order <= 6);
-                if (countyLevel) {
-                    displayAddress = countyLevel.name;
-                    if (data.principalSubdivision) {
-                        displayAddress += `, ${data.principalSubdivision}`;
+                // Order 8-9 are typically city/town level
+                for (let order = 9; order >= 8; order--) {
+                    const admin = data.localityInfo.administrative.find(a => a.order === order);
+                    if (admin && !admin.name.toLowerCase().includes('district')) {
+                        displayAddress = admin.name;
+                        break;
                     }
                 }
             }
             
+            // Priority 3: Try smaller localities (villages, hamlets - order 10)
+            if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                const village = data.localityInfo.administrative.find(a => a.order === 10);
+                if (village) {
+                    displayAddress = village.name;
+                }
+            }
+            
+            // Priority 4: Fall back to county (order 6)
+            if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                const county = data.localityInfo.administrative.find(a => a.order === 6);
+                if (county) {
+                    displayAddress = county.name + ' County';
+                }
+            }
+            
+            // Priority 5: Use any reasonable name we can find
             if (!displayAddress) {
-                displayAddress = 'Unknown location';
+                if (data.localityInfo && data.localityInfo.administrative && data.localityInfo.administrative.length > 0) {
+                    // Get the most specific locality available (highest order number)
+                    const mostSpecific = data.localityInfo.administrative.reduce((max, curr) => 
+                        curr.order > max.order ? curr : max
+                    );
+                    displayAddress = mostSpecific.name;
+                }
+            }
+            
+            // Add state/province if available
+            if (stateProvince) {
+                displayAddress = displayAddress ? `${displayAddress}, ${stateProvince}` : stateProvince;
+            }
+            
+            // Final fallback
+            if (!displayAddress) {
+                throw new Error('No location data available');
             }
             
             console.log(`Geocoded address: ${displayAddress}`);
@@ -1694,16 +1764,19 @@ class LicensePlateGame {
                 return this.geocodeLocation(lat, lng, retries - 1);
             }
             
-            // Fallback
-            return 'Unknown location';
+            // Final fallback to coordinates
+            console.log('All geocoding attempts failed, returning coordinates');
+            return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
         }
     }
 
     // Load location address for a specific element
     async loadLocationAddressForElement(elementId, lat, lng, delay = 0) {
+        console.log(`loadLocationAddressForElement called: ${elementId}, ${lat}, ${lng}, delay: ${delay}`);
+        
         const element = document.getElementById(elementId);
         if (!element) {
-            console.log(`Element ${elementId} not found`);
+            console.log(`Element ${elementId} not found initially`);
             return;
         }
         
@@ -1713,27 +1786,61 @@ class LicensePlateGame {
         }
         
         try {
+            console.log(`Starting geocode for ${elementId}`);
             const address = await this.geocodeLocation(lat, lng);
+            console.log(`Geocode completed for ${elementId}: ${address}`);
+            
             // Check if element still exists (user might have switched tabs)
             const checkElement = document.getElementById(elementId);
             if (checkElement) {
                 // Don't show icon in the text, just the address
                 checkElement.innerHTML = address;
                 checkElement.setAttribute('data-address', address);
+                console.log(`Updated element ${elementId} with address: ${address}`);
+            } else {
+                console.log(`Element ${elementId} no longer exists after geocoding`);
             }
         } catch (error) {
             console.error(`Error loading address for ${elementId}:`, error);
             const checkElement = document.getElementById(elementId);
             if (checkElement) {
-                checkElement.innerHTML = 'Unknown location';
+                // Show coordinates on error
+                const fallback = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                checkElement.innerHTML = fallback;
+                console.log(`Set fallback for ${elementId}: ${fallback}`);
             }
         }
     }
 
     // Load location address for route list items
     async loadLocationAddress(lat, lng, index) {
-        // Use 500ms delay between requests - BigDataCloud is more lenient than Nominatim
-        await this.loadLocationAddressForElement(`location-address-${index}`, lat, lng, index * 500);
+        const elementId = `location-address-${index}`;
+        
+        // Create a timeout promise that will show coordinates after 15 seconds
+        const timeoutPromise = new Promise((resolve) => {
+            setTimeout(() => {
+                console.log(`Timeout reached for ${elementId}, showing coordinates`);
+                const element = document.getElementById(elementId);
+                if (element && element.innerHTML.includes('Loading')) {
+                    element.innerHTML = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                }
+                resolve();
+            }, 15000);
+        });
+        
+        // Race between loading the address and the timeout
+        try {
+            await Promise.race([
+                this.loadLocationAddressForElement(elementId, lat, lng, index * 500),
+                timeoutPromise
+            ]);
+        } catch (error) {
+            console.error(`Error in loadLocationAddress for ${elementId}:`, error);
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.innerHTML = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            }
+        }
     }
 
     // Trip data management
