@@ -932,6 +932,13 @@ class LicensePlateGame {
             const mostPlatesCard = document.getElementById('mostPlatesCard');
             if (mostPlatesCard) {
                 this.setupLongPressForStatsCard(mostPlatesCard);
+                
+                // Load the location address for "Most in One Area"
+                const lat = parseFloat(mostPlatesCard.dataset.lat);
+                const lng = parseFloat(mostPlatesCard.dataset.lng);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    this.loadLocationAddressForElement('mostPlatesLocation', lat, lng);
+                }
             }
         }, 100);
     }
@@ -942,8 +949,10 @@ class LicensePlateGame {
         card.addEventListener('touchstart', (e) => {
             longPressTimer = setTimeout(() => {
                 const states = JSON.parse(card.getAttribute('data-states') || '[]');
+                const lat = parseFloat(card.getAttribute('data-lat'));
+                const lng = parseFloat(card.getAttribute('data-lng'));
                 if (states.length > 0) {
-                    this.showStateListPopup(states);
+                    this.showStateListPopup(states, lat, lng);
                 }
             }, 500);
         }, { passive: true });
@@ -960,8 +969,10 @@ class LicensePlateGame {
         card.addEventListener('mousedown', () => {
             longPressTimer = setTimeout(() => {
                 const states = JSON.parse(card.getAttribute('data-states') || '[]');
+                const lat = parseFloat(card.getAttribute('data-lat'));
+                const lng = parseFloat(card.getAttribute('data-lng'));
                 if (states.length > 0) {
-                    this.showStateListPopup(states);
+                    this.showStateListPopup(states, lat, lng);
                 }
             }, 500);
         });
@@ -975,7 +986,7 @@ class LicensePlateGame {
         });
     }
 
-    showStateListPopup(states) {
+    showStateListPopup(states, lat, lng) {
         this.triggerHapticFeedback('medium');
         
         // Remove any existing popup
@@ -988,7 +999,12 @@ class LicensePlateGame {
         popup.className = 'state-list-popup';
         popup.innerHTML = `
             <div class="state-list-popup-header">
-                <h3><i class="fas fa-map-marked-alt"></i> States Found in This Area</h3>
+                <div style="flex: 1;">
+                    <h3><i class="fas fa-map-marked-alt"></i> States Found in This Area</h3>
+                    <div class="state-list-popup-location" id="popupLocation" style="font-size: 0.85rem; color: #d1d5db; margin-top: 5px;">
+                        <i class="fas fa-spinner fa-spin"></i> Loading location...
+                    </div>
+                </div>
                 <button class="state-list-popup-close">
                     <i class="fas fa-times"></i>
                 </button>
@@ -1009,6 +1025,16 @@ class LicensePlateGame {
         requestAnimationFrame(() => {
             popup.classList.add('active');
         });
+        
+        // Load location address
+        if (!isNaN(lat) && !isNaN(lng)) {
+            this.geocodeLocation(lat, lng).then(address => {
+                const locationElement = document.getElementById('popupLocation');
+                if (locationElement) {
+                    locationElement.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
+                }
+            });
+        }
         
         // Bind close button
         popup.querySelector('.state-list-popup-close').addEventListener('click', () => {
@@ -1179,11 +1205,12 @@ class LicensePlateGame {
                 const maxLocation = Object.entries(locationCount).reduce((a, b) => a[1].count > b[1].count ? a : b);
                 const locationData = maxLocation[1];
                 const allStates = Array.from(locationData.states);
-                const statesList = allStates.join(' / ');
                 stats.mostPlatesState = { 
-                    name: statesList.length > 40 ? statesList.substring(0, 37) + '...' : statesList, 
+                    name: 'Loading location...', 
                     count: locationData.count,
-                    allStates: allStates // Store all states for long press
+                    allStates: allStates, // Store all states for long press
+                    lat: locationData.lat,
+                    lng: locationData.lng
                 };
             }
             
@@ -1285,11 +1312,13 @@ class LicensePlateGame {
                             </div>
                         ` : ''}
                         ${stats.mostPlatesState ? `
-                            <div class="stats-card has-long-press" id="mostPlatesCard" data-states='${JSON.stringify(stats.mostPlatesState.allStates || [])}'>
+                            <div class="stats-card has-long-press" id="mostPlatesCard" data-states='${JSON.stringify(stats.mostPlatesState.allStates || [])}' data-lat="${stats.mostPlatesState.lat}" data-lng="${stats.mostPlatesState.lng}">
                                 <div class="stats-card-icon"><i class="fas fa-map-pin"></i></div>
                                 <div class="stats-card-value">${stats.mostPlatesState.count}</div>
                                 <div class="stats-card-label">Most in One Area</div>
-                                <div class="stats-card-sublabel">${stats.mostPlatesState.name}</div>
+                                <div class="stats-card-sublabel" id="mostPlatesLocation">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                                </div>
                             </div>
                         ` : ''}
                         ${Object.keys(stats.spottedByHour).length > 0 ? `
@@ -1491,16 +1520,9 @@ class LicensePlateGame {
         }, 100);
     }
 
-    // Reverse Geocoding
-    async loadLocationAddress(lat, lng, index) {
-        const element = document.getElementById(`location-address-${index}`);
-        if (!element) return;
-        
+    // Reverse Geocoding - Generic function
+    async geocodeLocation(lat, lng) {
         try {
-            // Use Nominatim reverse geocoding (free, no API key needed)
-            // Respect their usage policy: 1 request per second
-            await new Promise(resolve => setTimeout(resolve, index * 1100));
-            
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
                 {
@@ -1538,13 +1560,35 @@ class LicensePlateGame {
                 displayAddress = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
             }
             
-            element.innerHTML = `<i class="fas fa-location-dot"></i> ${displayAddress}`;
+            return displayAddress;
             
         } catch (error) {
             console.log('Geocoding error:', error);
             // Fallback to coordinates
-            element.innerHTML = `<i class="fas fa-location-dot"></i> ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
         }
+    }
+
+    // Load location address for a specific element
+    async loadLocationAddressForElement(elementId, lat, lng, delay = 0) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        
+        // Add delay if specified (for rate limiting)
+        if (delay > 0) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        
+        const address = await this.geocodeLocation(lat, lng);
+        element.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
+        
+        // Store the address for later use
+        element.setAttribute('data-address', address);
+    }
+
+    // Load location address for route list items
+    async loadLocationAddress(lat, lng, index) {
+        await this.loadLocationAddressForElement(`location-address-${index}`, lat, lng, index * 1100);
     }
 
     // Trip data management

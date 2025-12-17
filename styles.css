@@ -2074,16 +2074,30 @@ img[data-src] {
 .state-list-popup-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 15px;
     padding-bottom: 15px;
     border-bottom: 2px solid rgba(251, 191, 36, 0.3);
+    gap: 15px;
 }
 
 .state-list-popup-header h3 {
     color: #f9fafb;
     margin: 0;
     font-size: 1.1rem;
+}
+
+.state-list-popup-location {
+    color: #d1d5db;
+    font-size: 0.85rem;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.state-list-popup-location i {
+    color: #fbbf24;
 }
 
 .state-list-popup-close {
