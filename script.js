@@ -1456,7 +1456,7 @@ class LicensePlateGame {
                     <div class="trip-info">
                         ${tripData.startAddress ? `
                             <div class="trip-info-item">
-                                <i class="fas fa-play-circle"></i>
+                                <i class="fas fa-location-dot"></i>
                                 <div>
                                     <strong>Start:</strong>
                                     <span>${tripData.startAddress}</span>
@@ -1465,7 +1465,7 @@ class LicensePlateGame {
                             </div>
                         ` : `
                             <div class="trip-info-item">
-                                <i class="fas fa-play-circle"></i>
+                                <i class="fas fa-location-dot"></i>
                                 <div>
                                     <strong>Start:</strong>
                                     <span>${stats.firstSpotted.state}, ${stats.firstSpotted.country.toUpperCase()}</span>
@@ -1476,7 +1476,7 @@ class LicensePlateGame {
                         
                         ${tripData.endAddress ? `
                             <div class="trip-info-item">
-                                <i class="fas fa-stop-circle"></i>
+                                <i class="fas fa-flag-checkered"></i>
                                 <div>
                                     <strong>End:</strong>
                                     <span>${tripData.endAddress}</span>
@@ -1485,7 +1485,7 @@ class LicensePlateGame {
                             </div>
                         ` : `
                             <div class="trip-info-item">
-                                <i class="fas fa-stop-circle"></i>
+                                <i class="fas fa-flag-checkered"></i>
                                 <div>
                                     <strong>End:</strong>
                                     <span>${stats.lastSpotted.state}, ${stats.lastSpotted.country.toUpperCase()}</span>
@@ -1512,17 +1512,21 @@ class LicensePlateGame {
             </div>
         `;
         
-        // Load addresses for all locations
+        // Load addresses for all locations after ensuring DOM is ready
         setTimeout(() => {
+            console.log(`Loading addresses for ${stats.locations.length} locations`);
             stats.locations.forEach((loc, index) => {
+                console.log(`Queuing address load for location ${index}: ${loc.state}, ${loc.lat}, ${loc.lng}`);
                 this.loadLocationAddress(loc.lat, loc.lng, index);
             });
-        }, 100);
+        }, 200);
     }
 
     // Reverse Geocoding - Generic function
-    async geocodeLocation(lat, lng) {
+    async geocodeLocation(lat, lng, retries = 2) {
         try {
+            console.log(`Geocoding: ${lat}, ${lng}`);
+            
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
                 {
@@ -1532,9 +1536,14 @@ class LicensePlateGame {
                 }
             );
             
-            if (!response.ok) throw new Error('Geocoding failed');
+            if (!response.ok) {
+                console.error(`Geocoding HTTP error: ${response.status}`);
+                throw new Error(`HTTP ${response.status}`);
+            }
             
             const data = await response.json();
+            console.log('Geocoding response:', data);
+            
             const address = data.address || {};
             
             // Build a nice address string
@@ -1553,17 +1562,26 @@ class LicensePlateGame {
             if (!displayAddress && data.display_name) {
                 // Fallback to first two parts of display name
                 const parts = data.display_name.split(',');
-                displayAddress = parts.slice(0, 2).join(',');
+                displayAddress = parts.slice(0, 2).join(',').trim();
             }
             
             if (!displayAddress) {
                 displayAddress = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
             }
             
+            console.log(`Geocoded address: ${displayAddress}`);
             return displayAddress;
             
         } catch (error) {
-            console.log('Geocoding error:', error);
+            console.error('Geocoding error:', error);
+            
+            // Retry if we have retries left
+            if (retries > 0) {
+                console.log(`Retrying geocoding... (${retries} retries left)`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return this.geocodeLocation(lat, lng, retries - 1);
+            }
+            
             // Fallback to coordinates
             return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
         }
@@ -1572,23 +1590,37 @@ class LicensePlateGame {
     // Load location address for a specific element
     async loadLocationAddressForElement(elementId, lat, lng, delay = 0) {
         const element = document.getElementById(elementId);
-        if (!element) return;
+        if (!element) {
+            console.log(`Element ${elementId} not found`);
+            return;
+        }
         
         // Add delay if specified (for rate limiting)
         if (delay > 0) {
             await new Promise(resolve => setTimeout(resolve, delay));
         }
         
-        const address = await this.geocodeLocation(lat, lng);
-        element.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
-        
-        // Store the address for later use
-        element.setAttribute('data-address', address);
+        try {
+            const address = await this.geocodeLocation(lat, lng);
+            // Check if element still exists (user might have switched tabs)
+            const checkElement = document.getElementById(elementId);
+            if (checkElement) {
+                checkElement.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
+                checkElement.setAttribute('data-address', address);
+            }
+        } catch (error) {
+            console.error(`Error loading address for ${elementId}:`, error);
+            const checkElement = document.getElementById(elementId);
+            if (checkElement) {
+                checkElement.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            }
+        }
     }
 
     // Load location address for route list items
     async loadLocationAddress(lat, lng, index) {
-        await this.loadLocationAddressForElement(`location-address-${index}`, lat, lng, index * 1100);
+        // Use shorter delay - 1.5 seconds between requests to be nice to Nominatim
+        await this.loadLocationAddressForElement(`location-address-${index}`, lat, lng, index * 1500);
     }
 
     // Trip data management

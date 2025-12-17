@@ -1570,6 +1570,11 @@ img[data-src] {
     overflow-x: hidden;
 }
 
+.stats-overview {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
 .stats-hero-item {
     background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.15) 100%);
     border: 2px solid rgba(251, 191, 36, 0.3);
@@ -1594,6 +1599,8 @@ img[data-src] {
 /* Stats Section */
 .stats-section {
     margin-bottom: 30px;
+    overflow-x: hidden;
+    max-width: 100%;
 }
 
 .stats-section h3 {
@@ -1655,6 +1662,7 @@ img[data-src] {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 15px;
+    max-width: 100%;
 }
 
 .stats-card {
@@ -1664,6 +1672,8 @@ img[data-src] {
     padding: 20px;
     text-align: center;
     position: relative;
+    overflow: hidden;
+    min-width: 0;
 }
 
 .stats-card.has-long-press {
@@ -1709,6 +1719,10 @@ img[data-src] {
 .stats-card-sublabel {
     color: #9ca3af;
     font-size: 0.8rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-width: 100%;
 }
 
 /* Stats List */
@@ -1742,9 +1756,7 @@ img[data-src] {
 }
 
 /* Timeline */
-.timeline-list {
-    /* Removed max-height and overflow to prevent double scrolling */
-}
+/* Note: Removed max-height and overflow to prevent double scrolling */
 
 .timeline-item {
     display: flex;
@@ -1839,6 +1851,7 @@ img[data-src] {
     gap: 10px;
     margin-bottom: 20px;
     flex-wrap: wrap;
+    max-width: 100%;
 }
 
 .btn-small {
@@ -1852,6 +1865,13 @@ img[data-src] {
     border: 2px solid rgba(251, 191, 36, 0.2);
     border-radius: 12px;
     padding: 20px;
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
+.stats-route {
+    overflow-x: hidden;
+    max-width: 100%;
 }
 
 .trip-info-item {
@@ -1859,6 +1879,7 @@ img[data-src] {
     gap: 15px;
     padding: 15px 0;
     border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+    overflow: hidden;
 }
 
 .trip-info-item:last-child {
@@ -1869,10 +1890,13 @@ img[data-src] {
     color: #fbbf24;
     font-size: 1.5rem;
     margin-top: 3px;
+    flex-shrink: 0;
 }
 
 .trip-info-item div {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .trip-info-item strong {
@@ -1883,6 +1907,9 @@ img[data-src] {
 
 .trip-info-item span {
     color: #d1d5db;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    display: block;
 }
 
 .trip-override-badge {
@@ -1913,16 +1940,18 @@ img[data-src] {
     border: 2px solid rgba(251, 191, 36, 0.2);
     border-radius: 12px;
     padding: 15px;
-    /* Removed max-height to prevent double scrolling */
+    overflow-x: hidden;
+    max-width: 100%;
 }
 
 .location-item {
     padding: 12px;
     border-bottom: 1px solid rgba(251, 191, 36, 0.2);
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 15px;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+    overflow: hidden;
 }
 
 .location-item:last-child {
@@ -1933,7 +1962,9 @@ img[data-src] {
     color: #f9fafb;
     font-weight: 700;
     font-size: 0.95rem;
-    white-space: nowrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
 }
 
 .location-address-link {
@@ -1945,8 +1976,9 @@ img[data-src] {
     display: flex;
     align-items: center;
     gap: 6px;
-    flex: 1;
-    min-width: 0; /* Allow text to truncate */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
 }
 
 .location-address-link i {
@@ -2010,7 +2042,7 @@ img[data-src] {
     }
     
     .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
     }
     
     .stats-country-grid {
