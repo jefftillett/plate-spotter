@@ -932,13 +932,6 @@ class LicensePlateGame {
             const mostPlatesCard = document.getElementById('mostPlatesCard');
             if (mostPlatesCard) {
                 this.setupLongPressForStatsCard(mostPlatesCard);
-                
-                // Load the location address for "Most in One Area"
-                const lat = parseFloat(mostPlatesCard.dataset.lat);
-                const lng = parseFloat(mostPlatesCard.dataset.lng);
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    this.loadLocationAddressForElement('mostPlatesLocation', lat, lng);
-                }
             }
         }, 100);
     }
@@ -1002,7 +995,7 @@ class LicensePlateGame {
                 <div style="flex: 1;">
                     <h3><i class="fas fa-map-marked-alt"></i> States Found in This Area</h3>
                     <div class="state-list-popup-location" id="popupLocation" style="font-size: 0.85rem; color: #d1d5db; margin-top: 5px;">
-                        <i class="fas fa-spinner fa-spin"></i> Loading location...
+                        <i class="fas fa-location-dot"></i> ${lat.toFixed(4)}, ${lng.toFixed(4)}
                     </div>
                 </div>
                 <button class="state-list-popup-close">
@@ -1010,6 +1003,9 @@ class LicensePlateGame {
                 </button>
             </div>
             <div class="state-list-popup-content">
+                <button class="btn btn-primary" id="seeOnMapBtn" style="width: 100%; margin-bottom: 15px;">
+                    <i class="fas fa-map"></i> See on Map
+                </button>
                 ${states.map(state => `
                     <div class="state-list-popup-item">
                         <i class="fas fa-map-pin"></i>
@@ -1026,13 +1022,12 @@ class LicensePlateGame {
             popup.classList.add('active');
         });
         
-        // Load location address
-        if (!isNaN(lat) && !isNaN(lng)) {
-            this.geocodeLocation(lat, lng).then(address => {
-                const locationElement = document.getElementById('popupLocation');
-                if (locationElement) {
-                    locationElement.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
-                }
+        // Bind "See on Map" button
+        const seeOnMapBtn = popup.querySelector('#seeOnMapBtn');
+        if (seeOnMapBtn) {
+            seeOnMapBtn.addEventListener('click', () => {
+                this.closeStateListPopup();
+                this.showInteractiveMap(lat, lng, states);
             });
         }
         
@@ -1061,6 +1056,84 @@ class LicensePlateGame {
         if (popup) {
             popup.classList.remove('active');
             setTimeout(() => popup.remove(), 300);
+            this.triggerHapticFeedback('light');
+        }
+    }
+
+    showInteractiveMap(lat, lng, states) {
+        this.triggerHapticFeedback('medium');
+        
+        // Remove any existing map modal
+        const existingModal = document.querySelector('.map-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create map modal
+        const modal = document.createElement('div');
+        modal.className = 'map-modal';
+        
+        const statesList = states.join(', ');
+        
+        modal.innerHTML = `
+            <div class="map-modal-content">
+                <div class="map-modal-header">
+                    <h3>
+                        <i class="fas fa-map-marked-alt"></i>
+                        Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}
+                    </h3>
+                    <button class="map-modal-close" id="mapModalCloseBtn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="map-modal-body">
+                    <iframe 
+                        class="map-iframe" 
+                        src="https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.1},${lat - 0.1},${lng + 0.1},${lat + 0.1}&layer=mapnik&marker=${lat},${lng}"
+                        allowfullscreen
+                        loading="lazy">
+                    </iframe>
+                    <div style="margin-top: 10px; text-align: center; color: #d1d5db; font-size: 0.85rem;">
+                        <strong>States found here:</strong> ${statesList}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Animate in
+        requestAnimationFrame(() => {
+            modal.classList.add('active');
+        });
+        
+        // Bind close button
+        const closeBtn = modal.querySelector('#mapModalCloseBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.closeInteractiveMap();
+            });
+        }
+        
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeInteractiveMap();
+            }
+        });
+        
+        // Prevent body scroll when modal is open
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeInteractiveMap() {
+        const modal = document.querySelector('.map-modal');
+        if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => {
+                modal.remove();
+                document.body.style.overflow = '';
+            }, 300);
             this.triggerHapticFeedback('light');
         }
     }
@@ -1317,7 +1390,7 @@ class LicensePlateGame {
                                 <div class="stats-card-value">${stats.mostPlatesState.count}</div>
                                 <div class="stats-card-label">Most in One Area</div>
                                 <div class="stats-card-sublabel" id="mostPlatesLocation">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                                    ${stats.mostPlatesState.lat.toFixed(2)}, ${stats.mostPlatesState.lng.toFixed(2)}
                                 </div>
                             </div>
                         ` : ''}
@@ -1503,7 +1576,7 @@ class LicensePlateGame {
                             <div class="location-item" id="location-${index}" data-lat="${loc.lat}" data-lng="${loc.lng}">
                                 <div class="location-name">${loc.state}, ${loc.country.toUpperCase()}</div>
                                 <a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" class="location-address-link" id="location-address-${index}">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading address...
+                                    <i class="fas fa-map-marker-alt"></i> ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}
                                 </a>
                             </div>
                         `).join('')}
@@ -1511,15 +1584,6 @@ class LicensePlateGame {
                 </div>
             </div>
         `;
-        
-        // Load addresses for all locations after ensuring DOM is ready
-        setTimeout(() => {
-            console.log(`Loading addresses for ${stats.locations.length} locations`);
-            stats.locations.forEach((loc, index) => {
-                console.log(`Queuing address load for location ${index}: ${loc.state}, ${loc.lat}, ${loc.lng}`);
-                this.loadLocationAddress(loc.lat, loc.lng, index);
-            });
-        }, 200);
     }
 
     // Reverse Geocoding - Generic function
