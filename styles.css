@@ -1488,10 +1488,13 @@ img[data-src] {
     margin-bottom: 25px;
     border-bottom: 2px solid rgba(251, 191, 36, 0.2);
     padding-bottom: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     max-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    justify-content: center;
+    padding-left: 10px;
+    padding-right: 10px;
 }
 
 .stats-tab {
@@ -1979,12 +1982,17 @@ img[data-src] {
     font-size: 0.85rem;
     transition: all 0.2s ease;
     font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    display: block;
     word-wrap: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
+}
+
+.location-address-link::before {
+    content: '\f3c5';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-right: 6px;
 }
 
 .location-address-link i {

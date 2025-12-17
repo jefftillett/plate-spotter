@@ -932,6 +932,13 @@ class LicensePlateGame {
             const mostPlatesCard = document.getElementById('mostPlatesCard');
             if (mostPlatesCard) {
                 this.setupLongPressForStatsCard(mostPlatesCard);
+                
+                // Load the location address for "Most in One Area"
+                const lat = parseFloat(mostPlatesCard.dataset.lat);
+                const lng = parseFloat(mostPlatesCard.dataset.lng);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    this.loadLocationAddressForElement('mostPlatesLocation', lat, lng);
+                }
             }
         }, 100);
     }
@@ -995,7 +1002,7 @@ class LicensePlateGame {
                 <div style="flex: 1;">
                     <h3><i class="fas fa-map-marked-alt"></i> States Found in This Area</h3>
                     <div class="state-list-popup-location" id="popupLocation" style="font-size: 0.85rem; color: #d1d5db; margin-top: 5px;">
-                        <i class="fas fa-location-dot"></i> ${lat.toFixed(4)}, ${lng.toFixed(4)}
+                        <i class="fas fa-spinner fa-spin"></i> Loading location...
                     </div>
                 </div>
                 <button class="state-list-popup-close">
@@ -1022,12 +1029,33 @@ class LicensePlateGame {
             popup.classList.add('active');
         });
         
-        // Bind "See on Map" button
+        // Load location address
+        if (!isNaN(lat) && !isNaN(lng)) {
+            this.geocodeLocation(lat, lng).then(address => {
+                const locationElement = document.getElementById('popupLocation');
+                if (locationElement) {
+                    locationElement.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
+                }
+            }).catch(error => {
+                console.error('Failed to load address:', error);
+                const locationElement = document.getElementById('popupLocation');
+                if (locationElement) {
+                    locationElement.innerHTML = `<i class="fas fa-location-dot"></i> Unknown location`;
+                }
+            });
+        }
+        
+        // Bind "See on Map" button - use arrow function to preserve 'this' context
         const seeOnMapBtn = popup.querySelector('#seeOnMapBtn');
         if (seeOnMapBtn) {
-            seeOnMapBtn.addEventListener('click', () => {
+            seeOnMapBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('See on Map clicked', lat, lng, states);
                 this.closeStateListPopup();
-                this.showInteractiveMap(lat, lng, states);
+                setTimeout(() => {
+                    this.showInteractiveMap(lat, lng, states);
+                }, 350);
             });
         }
         
@@ -1061,6 +1089,7 @@ class LicensePlateGame {
     }
 
     showInteractiveMap(lat, lng, states) {
+        console.log('showInteractiveMap called with:', lat, lng, states);
         this.triggerHapticFeedback('medium');
         
         // Remove any existing map modal
@@ -1073,14 +1102,14 @@ class LicensePlateGame {
         const modal = document.createElement('div');
         modal.className = 'map-modal';
         
-        const statesList = states.join(', ');
+        const statesList = Array.isArray(states) ? states.join(', ') : states;
         
         modal.innerHTML = `
             <div class="map-modal-content">
                 <div class="map-modal-header">
                     <h3>
                         <i class="fas fa-map-marked-alt"></i>
-                        Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}
+                        Location Map
                     </h3>
                     <button class="map-modal-close" id="mapModalCloseBtn">
                         <i class="fas fa-times"></i>
@@ -1101,16 +1130,20 @@ class LicensePlateGame {
         `;
         
         document.body.appendChild(modal);
+        console.log('Map modal added to DOM');
         
         // Animate in
         requestAnimationFrame(() => {
             modal.classList.add('active');
+            console.log('Map modal activated');
         });
         
         // Bind close button
         const closeBtn = modal.querySelector('#mapModalCloseBtn');
         if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 this.closeInteractiveMap();
             });
         }
@@ -1390,7 +1423,7 @@ class LicensePlateGame {
                                 <div class="stats-card-value">${stats.mostPlatesState.count}</div>
                                 <div class="stats-card-label">Most in One Area</div>
                                 <div class="stats-card-sublabel" id="mostPlatesLocation">
-                                    ${stats.mostPlatesState.lat.toFixed(2)}, ${stats.mostPlatesState.lng.toFixed(2)}
+                                    <i class="fas fa-spinner fa-spin"></i> Loading...
                                 </div>
                             </div>
                         ` : ''}
@@ -1576,7 +1609,7 @@ class LicensePlateGame {
                             <div class="location-item" id="location-${index}" data-lat="${loc.lat}" data-lng="${loc.lng}">
                                 <div class="location-name">${loc.state}, ${loc.country.toUpperCase()}</div>
                                 <a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" class="location-address-link" id="location-address-${index}">
-                                    <i class="fas fa-map-marker-alt"></i> ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}
+                                    <i class="fas fa-spinner fa-spin"></i> Loading location...
                                 </a>
                             </div>
                         `).join('')}
@@ -1584,20 +1617,24 @@ class LicensePlateGame {
                 </div>
             </div>
         `;
+        
+        // Load addresses for all locations
+        setTimeout(() => {
+            console.log(`Loading addresses for ${stats.locations.length} locations`);
+            stats.locations.forEach((loc, index) => {
+                this.loadLocationAddress(loc.lat, loc.lng, index);
+            });
+        }, 100);
     }
 
-    // Reverse Geocoding - Generic function
+    // Reverse Geocoding - Generic function using BigDataCloud (free, no API key needed)
     async geocodeLocation(lat, lng, retries = 2) {
         try {
             console.log(`Geocoding: ${lat}, ${lng}`);
             
+            // Use BigDataCloud reverse geocoding API (free, no API key required)
             const response = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
-                {
-                    headers: {
-                        'User-Agent': 'LicensePlateSpotterGame/1.0'
-                    }
-                }
+                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
             );
             
             if (!response.ok) {
@@ -1608,29 +1645,40 @@ class LicensePlateGame {
             const data = await response.json();
             console.log('Geocoding response:', data);
             
-            const address = data.address || {};
-            
-            // Build a nice address string
+            // Build a nice address string focusing on city/locality
             let displayAddress = '';
             
-            if (address.city || address.town || address.village) {
-                displayAddress = address.city || address.town || address.village;
-            } else if (address.county) {
-                displayAddress = address.county;
+            // Try to get city/town
+            if (data.city) {
+                displayAddress = data.city;
+            } else if (data.locality) {
+                displayAddress = data.locality;
+            } else if (data.localityInfo && data.localityInfo.administrative && data.localityInfo.administrative.length > 0) {
+                // Try to find a city-level administrative area
+                const cityLevel = data.localityInfo.administrative.find(a => a.order >= 6 && a.order <= 8);
+                if (cityLevel) {
+                    displayAddress = cityLevel.name;
+                }
             }
             
-            if (address.state) {
-                displayAddress += displayAddress ? `, ${address.state}` : address.state;
+            // Add state/province if available
+            if (data.principalSubdivision) {
+                displayAddress += displayAddress ? `, ${data.principalSubdivision}` : data.principalSubdivision;
             }
             
-            if (!displayAddress && data.display_name) {
-                // Fallback to first two parts of display name
-                const parts = data.display_name.split(',');
-                displayAddress = parts.slice(0, 2).join(',').trim();
+            // If still no address, fall back to county
+            if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                const countyLevel = data.localityInfo.administrative.find(a => a.order >= 4 && a.order <= 6);
+                if (countyLevel) {
+                    displayAddress = countyLevel.name;
+                    if (data.principalSubdivision) {
+                        displayAddress += `, ${data.principalSubdivision}`;
+                    }
+                }
             }
             
             if (!displayAddress) {
-                displayAddress = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                displayAddress = 'Unknown location';
             }
             
             console.log(`Geocoded address: ${displayAddress}`);
@@ -1642,12 +1690,12 @@ class LicensePlateGame {
             // Retry if we have retries left
             if (retries > 0) {
                 console.log(`Retrying geocoding... (${retries} retries left)`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 return this.geocodeLocation(lat, lng, retries - 1);
             }
             
-            // Fallback to coordinates
-            return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            // Fallback
+            return 'Unknown location';
         }
     }
 
@@ -1669,22 +1717,23 @@ class LicensePlateGame {
             // Check if element still exists (user might have switched tabs)
             const checkElement = document.getElementById(elementId);
             if (checkElement) {
-                checkElement.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
+                // Don't show icon in the text, just the address
+                checkElement.innerHTML = address;
                 checkElement.setAttribute('data-address', address);
             }
         } catch (error) {
             console.error(`Error loading address for ${elementId}:`, error);
             const checkElement = document.getElementById(elementId);
             if (checkElement) {
-                checkElement.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                checkElement.innerHTML = 'Unknown location';
             }
         }
     }
 
     // Load location address for route list items
     async loadLocationAddress(lat, lng, index) {
-        // Use shorter delay - 1.5 seconds between requests to be nice to Nominatim
-        await this.loadLocationAddressForElement(`location-address-${index}`, lat, lng, index * 1500);
+        // Use 500ms delay between requests - BigDataCloud is more lenient than Nominatim
+        await this.loadLocationAddressForElement(`location-address-${index}`, lat, lng, index * 500);
     }
 
     // Trip data management
