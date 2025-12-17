@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Real License Plates</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .instructions {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .instructions ol {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+        .instructions li {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        .state-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .state-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.2s;
+        }
+        .state-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .state-name {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        .download-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .download-btn:hover {
+            background: #5568d3;
+        }
+        .filename {
+            font-size: 0.85em;
+            color: #718096;
+            margin-top: 8px;
+            font-family: monospace;
+        }
+        .progress {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px solid #e2e8f0;
+        }
+        .progress-bar {
+            height: 30px;
+            background: #e2e8f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚗 Download Real License Plate Photos</h1>
+        <p>Click on each state to download the official license plate image from Wikimedia Commons</p>
+    </div>
+
+    <div class="instructions">
+        <h3>📋 How to Download:</h3>
+        <ol>
+            <li><strong>Click a state name below</strong> - Opens Google Images search</li>
+            <li><strong>Pick a clear, official-looking license plate photo</strong></li>
+            <li><strong>Right-click the image</strong> → <strong>Save Image As...</strong></li>
+            <li><strong>Save to:</strong> <code>/Users/jtillett/cursor/License Plate Game/plates/usa/</code></li>
+            <li><strong>Name it exactly:</strong> The filename shown below (e.g., "california.jpg")</li>
+            <li><strong>Delete</strong> the old .svg file with the same name</li>
+        </ol>
+        <p><strong>💡 Tip:</strong> Start with just 5-10 popular states to test, then do the rest later!</p>
+        <p><strong>🎯 Look for:</strong> Clear photos of standard issue plates (not specialty/vanity plates)</p>
+    </div>
+
+    <div class="progress">
+        <strong>Download Progress:</strong>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill">0 / 50</div>
+        </div>
+    </div>
+
+    <div class="state-grid" id="stateGrid">
+        <!-- States will be added here by JavaScript -->
+    </div>
+
+    <script>
+        const states = [
+            { name: 'Alabama', file: 'alabama.jpg' },
+            { name: 'Alaska', file: 'alaska.jpg' },
+            { name: 'Arizona', file: 'arizona.jpg' },
+            { name: 'Arkansas', file: 'arkansas.jpg' },
+            { name: 'California', file: 'california.jpg' },
+            { name: 'Colorado', file: 'colorado.jpg' },
+            { name: 'Connecticut', file: 'connecticut.jpg' },
+            { name: 'Delaware', file: 'delaware.jpg' },
+            { name: 'Florida', file: 'florida.jpg' },
+            { name: 'Georgia', file: 'georgia.jpg' },
+            { name: 'Hawaii', file: 'hawaii.jpg' },
+            { name: 'Idaho', file: 'idaho.jpg' },
+            { name: 'Illinois', file: 'illinois.jpg' },
+            { name: 'Indiana', file: 'indiana.jpg' },
+            { name: 'Iowa', file: 'iowa.jpg' },
+            { name: 'Kansas', file: 'kansas.jpg' },
+            { name: 'Kentucky', file: 'kentucky.jpg' },
+            { name: 'Louisiana', file: 'louisiana.jpg' },
+            { name: 'Maine', file: 'maine.jpg' },
+            { name: 'Maryland', file: 'maryland.jpg' },
+            { name: 'Massachusetts', file: 'massachusetts.jpg' },
+            { name: 'Michigan', file: 'michigan.jpg' },
+            { name: 'Minnesota', file: 'minnesota.jpg' },
+            { name: 'Mississippi', file: 'mississippi.jpg' },
+            { name: 'Missouri', file: 'missouri.jpg' },
+            { name: 'Montana', file: 'montana.jpg' },
+            { name: 'Nebraska', file: 'nebraska.jpg' },
+            { name: 'Nevada', file: 'nevada.jpg' },
+            { name: 'New Hampshire', file: 'new-hampshire.jpg' },
+            { name: 'New Jersey', file: 'new-jersey.jpg' },
+            { name: 'New Mexico', file: 'new-mexico.jpg' },
+            { name: 'New York', file: 'new-york.jpg' },
+            { name: 'North Carolina', file: 'north-carolina.jpg' },
+            { name: 'North Dakota', file: 'north-dakota.jpg' },
+            { name: 'Ohio', file: 'ohio.jpg' },
+            { name: 'Oklahoma', file: 'oklahoma.jpg' },
+            { name: 'Oregon', file: 'oregon.jpg' },
+            { name: 'Pennsylvania', file: 'pennsylvania.jpg' },
+            { name: 'Rhode Island', file: 'rhode-island.jpg' },
+            { name: 'South Carolina', file: 'south-carolina.jpg' },
+            { name: 'South Dakota', file: 'south-dakota.jpg' },
+            { name: 'Tennessee', file: 'tennessee.jpg' },
+            { name: 'Texas', file: 'texas.jpg' },
+            { name: 'Utah', file: 'utah.jpg' },
+            { name: 'Vermont', file: 'vermont.jpg' },
+            { name: 'Virginia', file: 'virginia.jpg' },
+            { name: 'Washington', file: 'washington.jpg' },
+            { name: 'West Virginia', file: 'west-virginia.jpg' },
+            { name: 'Wisconsin', file: 'wisconsin.jpg' },
+            { name: 'Wyoming', file: 'wyoming.jpg' },
+            { name: 'Washington D.C.', file: 'washington-dc.jpg' }
+        ];
+        
+        // Generate Google Images search URL for each state
+        function getSearchUrl(stateName) {
+            const query = encodeURIComponent(stateName + ' license plate 2023');
+            return `https://www.google.com/search?tbm=isch&q=${query}`;
+        }
+
+        const grid = document.getElementById('stateGrid');
+        const progressFill = document.getElementById('progressFill');
+        
+        let downloadedCount = 0;
+
+        states.forEach(state => {
+            const card = document.createElement('div');
+            card.className = 'state-card';
+            const searchUrl = getSearchUrl(state.name);
+            card.innerHTML = `
+                <div class="state-name">${state.name}</div>
+                <a href="${searchUrl}" target="_blank" class="download-btn" onclick="trackDownload()">
+                    🔍 Search Google Images
+                </a>
+                <div class="filename">Save as: ${state.file}</div>
+            `;
+            grid.appendChild(card);
+        });
+
+        function trackDownload() {
+            downloadedCount++;
+            const percent = Math.round((downloadedCount / states.length) * 100);
+            progressFill.style.width = percent + '%';
+            progressFill.textContent = `${downloadedCount} / ${states.length}`;
+        }
+
+        progressFill.textContent = `0 / ${states.length}`;
+    </script>
+</body>
+</html>
+

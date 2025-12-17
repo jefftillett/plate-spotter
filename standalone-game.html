@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Plate Spotter</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Plate Spotter">
+    <meta name="description" content="Track license plates from USA, Canada, and Mexico on your road trips">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="icons/icon-180x180.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180x180.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
+    
+    <!-- External Resources -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .header.scrolled {
+            padding: 15px 25px;
+            border-radius: 0;
+            margin-bottom: 0;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .header.scrolled .header-content {
+            gap: 15px;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #4a5568;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .header.scrolled .title {
+            font-size: 1.5rem;
+            gap: 10px;
+        }
+
+        .title i {
+            color: #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .header.scrolled .title i {
+            font-size: 1.2rem;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .header.scrolled .header-stats {
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            display: block;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .header.scrolled .stat-number {
+            font-size: 1.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #718096;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .header.scrolled .stat-label {
+            font-size: 0.75rem;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #4fd1c7;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #38b2ac;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #fc8181;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #f56565;
+            transform: translateY(-2px);
+        }
+
+        .search-group {
+            position: relative;
+        }
+
+        .plate-selector {
+            padding: 12px 45px 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            width: 250px;
+            background: white;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+
+        .plate-selector:hover {
+            border-color: #667eea;
+        }
+
+        .plate-selector:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .selector-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+            pointer-events: none;
+        }
+
+        .tabs {
+            display: flex;
+            flex-wrap: nowrap;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            gap: 8px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #718096;
+            white-space: nowrap;
+        }
+
+        .tab-btn i {
+            font-size: 1rem;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: #f7fafc;
+            color: #4a5568;
+        }
+
+        .license-plate-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+        }
+
+        .license-plate {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 3px solid transparent;
+        }
+
+        .license-plate:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .license-plate.spotted {
+            border-color: #48bb78;
+            background: rgba(72, 187, 120, 0.1);
+        }
+
+        .license-plate.spotted .plate-visual {
+            background: #48bb78;
+            color: white;
+        }
+
+        .license-plate.highlight {
+            animation: highlight-pulse 2s ease;
+        }
+
+        @keyframes highlight-pulse {
+            0%, 100% {
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+                transform: translateY(0);
+            }
+            50% {
+                box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+                transform: translateY(-8px);
+            }
+        }
+
+        .plate-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .plate-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #4a5568;
+        }
+
+        .plate-status {
+            font-size: 1.5rem;
+            color: #48bb78;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .plate-status:hover {
+            background: rgba(72, 187, 120, 0.1);
+            transform: scale(1.1);
+        }
+
+        .plate-status:active {
+            transform: scale(0.95);
+        }
+
+        .plate-status i {
+            animation: checkmark-pop 0.3s ease;
+            display: block;
+        }
+
+        @keyframes checkmark-pop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .plate-visual {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #4a5568;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .plate-action {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #a0aec0;
+            font-weight: 500;
+            margin-top: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .license-plate:hover .plate-action {
+            opacity: 1;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #48bb78;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(400px);
+            transition: all 0.3s ease;
+            z-index: 1001;
+            max-width: 300px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        /* Adjust position when header is scrolled */
+        .header.scrolled ~ .toast,
+        body:has(.header.scrolled) .toast {
+            top: 80px;
+        }
+
+        .toast.error {
+            background: #fc8181;
+        }
+
+        /* Back to Top Button */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 999;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .back-to-top:hover {
+            background: #5a67d8;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .back-to-top:active {
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header {
+                border-radius: 15px;
+                padding: 20px;
+            }
+            
+            .header.scrolled {
+                padding: 10px 15px;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            /* Keep header horizontal when scrolled on mobile */
+            .header.scrolled .header-content {
+                flex-direction: row;
+                text-align: left;
+                justify-content: space-between;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .header.scrolled .title {
+                font-size: 1rem;
+                gap: 6px;
+            }
+            
+            .header-stats {
+                gap: 20px;
+            }
+            
+            .header.scrolled .header-stats {
+                gap: 12px;
+            }
+            
+            .header.scrolled .stat-number {
+                font-size: 1rem;
+            }
+            
+            .header.scrolled .stat-label {
+                font-size: 0.65rem;
+            }
+            
+            .controls {
+                padding: 15px;
+                gap: 15px;
+            }
+            
+            .control-group {
+                flex-wrap: nowrap;
+                gap: 10px;
+                width: 100%;
+            }
+            
+            .btn {
+                padding: 10px 12px;
+                font-size: 0.75rem;
+                gap: 4px;
+                white-space: nowrap;
+            }
+            
+            .btn i {
+                font-size: 0.875rem;
+            }
+            
+            .search-group {
+                width: 100%;
+            }
+            
+            .plate-selector {
+                width: 100%;
+            }
+            
+            .tabs {
+                padding: 6px;
+                gap: 4px;
+            }
+            
+            .tab-btn {
+                padding: 10px 8px;
+                font-size: 0.75rem;
+                gap: 6px;
+            }
+            
+            .tab-btn i {
+                font-size: 0.875rem;
+            }
+            
+            .license-plate-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 15px;
+            }
+            
+            .header.scrolled {
+                padding: 8px 10px;
+            }
+            
+            .title {
+                font-size: 1.5rem;
+            }
+            
+            .header.scrolled .title {
+                font-size: 0.875rem;
+                gap: 4px;
+            }
+            
+            .header.scrolled .title i {
+                font-size: 0.875rem;
+            }
+            
+            .stat-number {
+                font-size: 1.5rem;
+            }
+            
+            .header.scrolled .stat-number {
+                font-size: 0.875rem;
+            }
+            
+            .header.scrolled .stat-label {
+                font-size: 0.6rem;
+            }
+            
+            .header.scrolled .header-stats {
+                gap: 8px;
+            }
+            
+            .controls {
+                padding: 12px;
+                gap: 12px;
+            }
+            
+            .control-group {
+                gap: 6px;
+            }
+            
+            .btn {
+                padding: 8px 10px;
+                font-size: 0.7rem;
+                gap: 3px;
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .btn i {
+                font-size: 0.75rem;
+            }
+            
+            .tab-btn {
+                padding: 8px 6px;
+                font-size: 0.7rem;
+                gap: 4px;
+            }
+            
+            .tab-btn i {
+                font-size: 0.8rem;
+            }
+            
+            .back-to-top {
+                bottom: 20px;
+                right: 20px;
+                width: 45px;
+                height: 45px;
+                font-size: 1.1rem;
+            }
+            
+            .toast {
+                top: 15px;
+                right: 15px;
+                padding: 12px 20px;
+                font-size: 0.875rem;
+                max-width: 250px;
+            }
+            
+            .header.scrolled ~ .toast,
+            body:has(.header.scrolled) .toast {
+                top: 65px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <i class="fas fa-car"></i>
+                    License Plate Spotter
+                </h1>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalSeen">0</span>
+                        <span class="stat-label">Total Spotted</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalPossible">0</span>
+                        <span class="stat-label">Total Possible</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="percentage">0%</span>
+                        <span class="stat-label">Complete</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <button class="btn btn-primary" id="saveGame">
+                    <i class="fas fa-save"></i>
+                    Save Game
+                </button>
+                <button class="btn btn-secondary" id="loadGame">
+                    <i class="fas fa-upload"></i>
+                    Load Game
+                </button>
+                <button class="btn btn-danger" id="newGame">
+                    <i class="fas fa-plus"></i>
+                    New Game
+                </button>
+            </div>
+            <div class="search-group">
+                <select id="plateSelector" class="plate-selector">
+                    <option value="">Jump to a plate...</option>
+                </select>
+                <i class="fas fa-chevron-down selector-icon"></i>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-country="usa">
+                <i class="fas fa-flag-usa"></i>
+                United States
+            </button>
+            <button class="tab-btn" data-country="canada">
+                <i class="fas fa-maple-leaf"></i>
+                Canada
+            </button>
+            <button class="tab-btn" data-country="mexico">
+                <i class="fas fa-flag"></i>
+                Mexico
+            </button>
+        </div>
+
+        <main class="main-content">
+            <div class="license-plate-grid" id="licensePlateGrid">
+                <!-- License plates will be dynamically generated here -->
+            </div>
+        </main>
+
+        <div class="toast" id="toast">
+            <i class="fas fa-check-circle"></i>
+            <span id="toastMessage">Game saved successfully!</span>
+        </div>
+    </div>
+
+    <button class="back-to-top" id="backToTop" aria-label="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <script>
+        class LicensePlateGame {
+            constructor() {
+                this.currentCountry = 'usa';
+                this.licensePlateData = this.initializeLicensePlateData();
+                this.init();
+            }
+
+            initializeLicensePlateData() {
+                return {
+                    usa: {
+                        'Alabama': { abbr: 'AL', count: 0 }, 'Alaska': { abbr: 'AK', count: 0 }, 'Arizona': { abbr: 'AZ', count: 0 },
+                        'Arkansas': { abbr: 'AR', count: 0 }, 'California': { abbr: 'CA', count: 0 }, 'Colorado': { abbr: 'CO', count: 0 },
+                        'Connecticut': { abbr: 'CT', count: 0 }, 'Delaware': { abbr: 'DE', count: 0 }, 'Florida': { abbr: 'FL', count: 0 },
+                        'Georgia': { abbr: 'GA', count: 0 }, 'Hawaii': { abbr: 'HI', count: 0 }, 'Idaho': { abbr: 'ID', count: 0 },
+                        'Illinois': { abbr: 'IL', count: 0 }, 'Indiana': { abbr: 'IN', count: 0 }, 'Iowa': { abbr: 'IA', count: 0 },
+                        'Kansas': { abbr: 'KS', count: 0 }, 'Kentucky': { abbr: 'KY', count: 0 }, 'Louisiana': { abbr: 'LA', count: 0 },
+                        'Maine': { abbr: 'ME', count: 0 }, 'Maryland': { abbr: 'MD', count: 0 }, 'Massachusetts': { abbr: 'MA', count: 0 },
+                        'Michigan': { abbr: 'MI', count: 0 }, 'Minnesota': { abbr: 'MN', count: 0 }, 'Mississippi': { abbr: 'MS', count: 0 },
+                        'Missouri': { abbr: 'MO', count: 0 }, 'Montana': { abbr: 'MT', count: 0 }, 'Nebraska': { abbr: 'NE', count: 0 },
+                        'Nevada': { abbr: 'NV', count: 0 }, 'New Hampshire': { abbr: 'NH', count: 0 }, 'New Jersey': { abbr: 'NJ', count: 0 },
+                        'New Mexico': { abbr: 'NM', count: 0 }, 'New York': { abbr: 'NY', count: 0 }, 'North Carolina': { abbr: 'NC', count: 0 },
+                        'North Dakota': { abbr: 'ND', count: 0 }, 'Ohio': { abbr: 'OH', count: 0 }, 'Oklahoma': { abbr: 'OK', count: 0 },
+                        'Oregon': { abbr: 'OR', count: 0 }, 'Pennsylvania': { abbr: 'PA', count: 0 }, 'Rhode Island': { abbr: 'RI', count: 0 },
+                        'South Carolina': { abbr: 'SC', count: 0 }, 'South Dakota': { abbr: 'SD', count: 0 }, 'Tennessee': { abbr: 'TN', count: 0 },
+                        'Texas': { abbr: 'TX', count: 0 }, 'Utah': { abbr: 'UT', count: 0 }, 'Vermont': { abbr: 'VT', count: 0 },
+                        'Virginia': { abbr: 'VA', count: 0 }, 'Washington': { abbr: 'WA', count: 0 }, 'West Virginia': { abbr: 'WV', count: 0 },
+                        'Wisconsin': { abbr: 'WI', count: 0 }, 'Wyoming': { abbr: 'WY', count: 0 }, 'Washington D.C.': { abbr: 'DC', count: 0 }
+                    },
+                    canada: {
+                        'Alberta': { abbr: 'AB', count: 0 }, 'British Columbia': { abbr: 'BC', count: 0 }, 'Manitoba': { abbr: 'MB', count: 0 },
+                        'New Brunswick': { abbr: 'NB', count: 0 }, 'Newfoundland and Labrador': { abbr: 'NL', count: 0 },
+                        'Northwest Territories': { abbr: 'NT', count: 0 }, 'Nova Scotia': { abbr: 'NS', count: 0 }, 'Nunavut': { abbr: 'NU', count: 0 },
+                        'Ontario': { abbr: 'ON', count: 0 }, 'Prince Edward Island': { abbr: 'PE', count: 0 }, 'Quebec': { abbr: 'QC', count: 0 },
+                        'Saskatchewan': { abbr: 'SK', count: 0 }, 'Yukon': { abbr: 'YT', count: 0 }
+                    },
+                    mexico: {
+                        'Aguascalientes': { abbr: 'AGS', count: 0 }, 'Baja California': { abbr: 'BC', count: 0 }, 'Baja California Sur': { abbr: 'BCS', count: 0 },
+                        'Campeche': { abbr: 'CAM', count: 0 }, 'Chiapas': { abbr: 'CHIS', count: 0 }, 'Chihuahua': { abbr: 'CHIH', count: 0 },
+                        'Coahuila': { abbr: 'COAH', count: 0 }, 'Colima': { abbr: 'COL', count: 0 }, 'Durango': { abbr: 'DGO', count: 0 },
+                        'Guanajuato': { abbr: 'GTO', count: 0 }, 'Guerrero': { abbr: 'GRO', count: 0 }, 'Hidalgo': { abbr: 'HGO', count: 0 },
+                        'Jalisco': { abbr: 'JAL', count: 0 }, 'Mexico': { abbr: 'MEX', count: 0 }, 'Michoacán': { abbr: 'MICH', count: 0 },
+                        'Morelos': { abbr: 'MOR', count: 0 }, 'Nayarit': { abbr: 'NAY', count: 0 }, 'Nuevo León': { abbr: 'NL', count: 0 },
+                        'Oaxaca': { abbr: 'OAX', count: 0 }, 'Puebla': { abbr: 'PUE', count: 0 }, 'Querétaro': { abbr: 'QRO', count: 0 },
+                        'Quintana Roo': { abbr: 'QROO', count: 0 }, 'San Luis Potosí': { abbr: 'SLP', count: 0 }, 'Sinaloa': { abbr: 'SIN', count: 0 },
+                        'Sonora': { abbr: 'SON', count: 0 }, 'Tabasco': { abbr: 'TAB', count: 0 }, 'Tamaulipas': { abbr: 'TAMPS', count: 0 },
+                        'Tlaxcala': { abbr: 'TLAX', count: 0 }, 'Veracruz': { abbr: 'VER', count: 0 }, 'Yucatán': { abbr: 'YUC', count: 0 },
+                        'Zacatecas': { abbr: 'ZAC', count: 0 }, 'Mexico City': { abbr: 'CDMX', count: 0 }
+                    }
+                };
+            }
+
+            init() {
+                this.loadGameData();
+                this.bindEvents();
+                this.renderLicensePlates();
+                this.updateStats();
+                this.setupScrollHeader();
+            }
+
+            bindEvents() {
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.switchCountry(e.target.dataset.country);
+                    });
+                });
+
+                // Plate selector
+                document.getElementById('plateSelector').addEventListener('change', (e) => {
+                    this.jumpToPlate(e.target.value);
+                });
+
+                document.getElementById('saveGame').addEventListener('click', () => this.saveGame());
+                document.getElementById('loadGame').addEventListener('click', () => this.loadGameFromFile());
+                document.getElementById('newGame').addEventListener('click', () => this.newGame());
+            }
+
+            setupScrollHeader() {
+                let lastScrollTop = 0;
+                const header = document.querySelector('.header');
+                const backToTop = document.getElementById('backToTop');
+                
+                window.addEventListener('scroll', () => {
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    
+                    if (scrollTop > 100) {
+                        header.classList.add('scrolled');
+                    } else {
+                        header.classList.remove('scrolled');
+                    }
+                    
+                    // Show/hide back to top button
+                    if (scrollTop > 300) {
+                        backToTop.classList.add('visible');
+                    } else {
+                        backToTop.classList.remove('visible');
+                    }
+                    
+                    lastScrollTop = scrollTop;
+                });
+                
+                // Back to top functionality
+                backToTop.addEventListener('click', () => {
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                });
+            }
+
+            switchCountry(country) {
+                this.currentCountry = country;
+                
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`[data-country="${country}"]`).classList.add('active');
+                
+                this.renderLicensePlates();
+                this.updateStats();
+                this.updatePlateSelector();
+            }
+
+            updatePlateSelector() {
+                const selector = document.getElementById('plateSelector');
+                const data = this.licensePlateData[this.currentCountry];
+                
+                // Clear existing options
+                selector.innerHTML = '<option value="">Jump to a plate...</option>';
+                
+                // Add all states/provinces as options
+                Object.entries(data).sort((a, b) => a[0].localeCompare(b[0])).forEach(([state, info]) => {
+                    const option = document.createElement('option');
+                    option.value = state;
+                    option.textContent = `${state} (${info.abbr})`;
+                    selector.appendChild(option);
+                });
+            }
+
+            jumpToPlate(stateName) {
+                if (!stateName) return;
+                
+                // Find the plate element
+                const plates = document.querySelectorAll('.license-plate');
+                let targetPlate = null;
+                
+                plates.forEach(plate => {
+                    if (plate.dataset.state === stateName) {
+                        targetPlate = plate;
+                    }
+                });
+                
+                if (targetPlate) {
+                    // Scroll to the plate with some offset for the sticky header
+                    const headerHeight = document.querySelector('.header').offsetHeight;
+                    const plateTop = targetPlate.getBoundingClientRect().top + window.pageYOffset;
+                    const scrollTo = plateTop - headerHeight - 20;
+                    
+                    window.scrollTo({
+                        top: scrollTo,
+                        behavior: 'smooth'
+                    });
+                    
+                    // Highlight the plate briefly
+                    targetPlate.classList.add('highlight');
+                    setTimeout(() => {
+                        targetPlate.classList.remove('highlight');
+                    }, 2000);
+                }
+                
+                // Reset selector
+                document.getElementById('plateSelector').value = '';
+            }
+
+            renderLicensePlates() {
+                const grid = document.getElementById('licensePlateGrid');
+                const data = this.licensePlateData[this.currentCountry];
+                
+                grid.innerHTML = '';
+                
+                Object.entries(data).forEach(([state, info]) => {
+                    const plateElement = this.createPlateElement(state, info);
+                    grid.appendChild(plateElement);
+                });
+                
+                this.updatePlateSelector();
+            }
+
+            createPlateElement(state, info) {
+                const plateDiv = document.createElement('div');
+                const isSpotted = info.count > 0;
+                plateDiv.className = `license-plate ${isSpotted ? 'spotted' : ''}`;
+                plateDiv.dataset.state = state;
+                
+                plateDiv.innerHTML = `
+                    <div class="plate-header">
+                        <div class="plate-name">${state}</div>
+                        <div class="plate-status">${isSpotted ? '<i class="fas fa-check-circle"></i>' : ''}</div>
+                    </div>
+                    <div class="plate-visual">${info.abbr}</div>
+                    <div class="plate-action">${isSpotted ? 'Click checkmark to remove' : 'Tap to mark as spotted'}</div>
+                `;
+                
+                // Click card to mark as spotted (only if not already spotted)
+                plateDiv.addEventListener('click', (e) => {
+                    // Don't mark if clicking on the checkmark or if already spotted
+                    if (!e.target.closest('.plate-status') && !isSpotted) {
+                        this.markPlateAsSpotted(state);
+                    }
+                });
+                
+                // Click checkmark to remove
+                const statusElement = plateDiv.querySelector('.plate-status');
+                if (statusElement && isSpotted) {
+                    statusElement.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.unmarkPlate(state);
+                    });
+                }
+                
+                return plateDiv;
+            }
+
+            markPlateAsSpotted(state) {
+                this.licensePlateData[this.currentCountry][state].count = 1;
+                this.showToast(`${state} spotted! ✓`);
+                this.updateStats();
+                this.renderLicensePlates();
+                this.saveGameData();
+            }
+
+            unmarkPlate(state) {
+                this.licensePlateData[this.currentCountry][state].count = 0;
+                this.showToast(`${state} unmarked`);
+                this.updateStats();
+                this.renderLicensePlates();
+                this.saveGameData();
+            }
+
+            updateStats() {
+                const data = this.licensePlateData[this.currentCountry];
+                const totalPossible = Object.keys(data).length;
+                const totalSeen = Object.values(data).filter(plate => plate.count > 0).length;
+                const percentage = Math.round((totalSeen / totalPossible) * 100);
+                
+                document.getElementById('totalSeen').textContent = totalSeen;
+                document.getElementById('totalPossible').textContent = totalPossible;
+                document.getElementById('percentage').textContent = `${percentage}%`;
+            }
+
+
+            saveGame() {
+                const gameState = {
+                    licensePlateData: this.licensePlateData,
+                    currentCountry: this.currentCountry,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const dataStr = JSON.stringify(gameState, null, 2);
+                const fileName = `license-plate-game-${new Date().toISOString().split('T')[0]}.json`;
+                
+                // Try Web Share API first (iOS Safari) - but WITHOUT the text parameter
+                if (navigator.share && navigator.canShare) {
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    const file = new File([blob], fileName, { 
+                        type: 'application/json',
+                        lastModified: Date.now()
+                    });
+                    
+                    // Check if we can share this specific file
+                    if (navigator.canShare({ files: [file] })) {
+                        navigator.share({
+                            files: [file]
+                            // Removed both 'title' and 'text' parameters - they create .txt files!
+                        }).then(() => {
+                            this.showToast('Game saved successfully!');
+                        }).catch((error) => {
+                            console.log('Share failed:', error);
+                            this.fallbackSave(dataStr, fileName);
+                        });
+                        return;
+                    }
+                }
+                
+                // Fallback to traditional download
+                this.fallbackSave(dataStr, fileName);
+            }
+            
+            fallbackSave(dataStr, fileName) {
+                // Try traditional download first
+                try {
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = fileName || 'license-plate-game.json';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    this.showToast('Game file downloaded!');
+                    return;
+                } catch (error) {
+                    console.log('Download failed:', error);
+                }
+                
+                // Fallback: Copy to clipboard and show instructions
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(dataStr).then(() => {
+                        this.showToast('Game data copied to clipboard! Paste into Notes app to save.', 'success', 5000);
+                    }).catch(() => {
+                        this.showSaveModal(dataStr);
+                    });
+                } else {
+                    this.showSaveModal(dataStr);
+                }
+            }
+            
+            showSaveModal(dataStr) {
+                // Create a modal with the save data
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+                    background: rgba(0,0,0,0.8); z-index: 10000; 
+                    display: flex; align-items: center; justify-content: center; padding: 20px;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 15px; padding: 20px; max-width: 90%; max-height: 80%; overflow: auto;">
+                        <h3 style="margin-bottom: 15px;">Save Game Data</h3>
+                        <p style="margin-bottom: 15px; font-size: 14px;">Copy this text and paste it into your Notes app or email it to yourself:</p>
+                        <textarea readonly style="width: 100%; height: 200px; font-family: monospace; font-size: 12px; border: 1px solid #ccc; border-radius: 5px; padding: 10px;">${dataStr}</textarea>
+                        <button onclick="this.parentElement.parentElement.remove()" style="margin-top: 15px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Close</button>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                modal.querySelector('textarea').select();
+            }
+
+            loadGameFromFile() {
+                // Show load modal with paste option for iOS
+                this.showLoadModal();
+            }
+            
+            showLoadModal() {
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+                    background: rgba(0,0,0,0.8); z-index: 10000; 
+                    display: flex; align-items: center; justify-content: center; padding: 20px;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 15px; padding: 20px; max-width: 90%; max-height: 80%; overflow: auto;">
+                        <h3 style="margin-bottom: 15px;">Load Game Data</h3>
+                        <p style="margin-bottom: 15px; font-size: 14px;">Paste your saved game data here:</p>
+                        <textarea id="loadTextarea" placeholder="Paste your game data here..." style="width: 100%; height: 200px; font-family: monospace; font-size: 12px; border: 1px solid #ccc; border-radius: 5px; padding: 10px; margin-bottom: 15px;"></textarea>
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="this.parentElement.parentElement.parentElement.remove()" style="padding: 10px 20px; background: #ccc; color: black; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+                            <button id="loadButton" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Load Game</button>
+                            <button id="fileButton" style="padding: 10px 20px; background: #4fd1c7; color: white; border: none; border-radius: 5px; cursor: pointer;">Choose File</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Handle paste load
+                modal.querySelector('#loadButton').onclick = () => {
+                    const data = modal.querySelector('#loadTextarea').value.trim();
+                    if (data) {
+                        try {
+                            const gameState = JSON.parse(data);
+                            this.licensePlateData = gameState.licensePlateData;
+                            this.currentCountry = gameState.currentCountry || 'usa';
+                            
+                            this.switchCountry(this.currentCountry);
+                            this.saveGameData();
+                            this.showToast('Game loaded successfully!');
+                            modal.remove();
+                        } catch (error) {
+                            this.showToast('Invalid game data format!', 'error');
+                        }
+                    }
+                };
+                
+                // Handle file load (fallback)
+                modal.querySelector('#fileButton').onclick = () => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.json,.txt';
+                    
+                    input.onchange = (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                try {
+                                    const gameState = JSON.parse(e.target.result);
+                                    this.licensePlateData = gameState.licensePlateData;
+                                    this.currentCountry = gameState.currentCountry || 'usa';
+                                    
+                                    this.switchCountry(this.currentCountry);
+                                    this.saveGameData();
+                                    this.showToast('Game loaded successfully!');
+                                    modal.remove();
+                                } catch (error) {
+                                    this.showToast('Error loading game file!', 'error');
+                                }
+                            };
+                            reader.readAsText(file);
+                        }
+                    };
+                    
+                    input.click();
+                };
+            }
+
+            newGame() {
+                this.showConfirmModal(
+                    'Start New Game?',
+                    'Are you sure you want to start a new game? This will reset all progress.',
+                    () => {
+                        this.licensePlateData = this.initializeLicensePlateData();
+                        this.renderLicensePlates();
+                        this.updateStats();
+                        this.saveGameData();
+                        this.showToast('New game started!');
+                    }
+                );
+            }
+
+            showConfirmModal(title, message, onConfirm) {
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+                    background: rgba(0,0,0,0.8); z-index: 10000; 
+                    display: flex; align-items: center; justify-content: center; padding: 20px;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 15px; padding: 25px; max-width: 400px; text-align: center;">
+                        <h3 style="margin-bottom: 15px; color: #4a5568;">${title}</h3>
+                        <p style="margin-bottom: 25px; color: #718096; line-height: 1.5;">${message}</p>
+                        <div style="display: flex; gap: 15px; justify-content: center;">
+                            <button id="cancelBtn" style="padding: 12px 24px; background: #e2e8f0; color: #4a5568; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Cancel</button>
+                            <button id="confirmBtn" style="padding: 12px 24px; background: #fc8181; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Reset Game</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                modal.querySelector('#cancelBtn').onclick = () => modal.remove();
+                modal.querySelector('#confirmBtn').onclick = () => {
+                    modal.remove();
+                    onConfirm();
+                };
+                
+                // Close on background click
+                modal.onclick = (e) => {
+                    if (e.target === modal) modal.remove();
+                };
+            }
+
+            saveGameData() {
+                try {
+                    localStorage.setItem('licensePlateGameData', JSON.stringify(this.licensePlateData));
+                    localStorage.setItem('licensePlateCurrentCountry', this.currentCountry);
+                } catch (e) {
+                    console.log('Local storage not available');
+                }
+            }
+
+            loadGameData() {
+                try {
+                    const savedData = localStorage.getItem('licensePlateGameData');
+                    const savedCountry = localStorage.getItem('licensePlateCurrentCountry');
+                    
+                    if (savedData) {
+                        this.licensePlateData = JSON.parse(savedData);
+                    }
+                    
+                    if (savedCountry) {
+                        this.currentCountry = savedCountry;
+                    }
+                } catch (e) {
+                    console.log('Error loading saved game data');
+                }
+            }
+
+            showToast(message, type = 'success') {
+                const toast = document.getElementById('toast');
+                const toastMessage = document.getElementById('toastMessage');
+                
+                toastMessage.textContent = message;
+                toast.className = `toast ${type}`;
+                toast.classList.add('show');
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new LicensePlateGame();
+        });
+    </script>
+</body>
+</html>

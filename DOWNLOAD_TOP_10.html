@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Top 10 License Plates</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+        }
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        .quick-start {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .quick-start h3 {
+            margin-top: 0;
+            color: #065f46;
+        }
+        .quick-start ol {
+            margin: 15px 0 0 0;
+            padding-left: 25px;
+        }
+        .quick-start li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        .quick-start code {
+            background: #a7f3d0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .state-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        .state-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .state-info {
+            flex: 1;
+        }
+        .state-name {
+            font-weight: 600;
+            font-size: 1.2em;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        .filename {
+            font-size: 0.9em;
+            color: #718096;
+            font-family: monospace;
+            background: #f7fafc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .download-btn {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .download-btn:hover {
+            background: #5568d3;
+        }
+        .progress {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px solid #e2e8f0;
+        }
+        .progress-bar {
+            height: 40px;
+            background: #e2e8f0;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 10px;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #2d3748;
+            z-index: 1;
+        }
+        .completed {
+            background: #d1fae5 !important;
+            border-color: #10b981 !important;
+        }
+        .completed .state-name::after {
+            content: " ✓";
+            color: #10b981;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚗 Top 10 License Plates</h1>
+        <p>Quick Start - Download the most common states first!</p>
+    </div>
+
+    <div class="quick-start">
+        <h3>⚡ Quick Instructions (5 minutes total):</h3>
+        <ol>
+            <li><strong>Click the blue button</strong> for each state below</li>
+            <li><strong>Pick a clear photo</strong> from Google Images (standard issue plate)</li>
+            <li><strong>Right-click the image</strong> → <strong>Save Image As...</strong></li>
+            <li><strong>Navigate to:</strong> <code>/Users/jtillett/cursor/License Plate Game/plates/usa/</code></li>
+            <li><strong>Save with the exact filename</strong> shown (e.g., <code>california.jpg</code>)</li>
+            <li><strong>Delete the old .svg file</strong> with the same name</li>
+            <li><strong>Repeat</strong> for all 10 states</li>
+            <li><strong>Refresh your game</strong> at <code>http://localhost:8080</code></li>
+        </ol>
+    </div>
+
+    <div class="progress">
+        <strong>Download Progress:</strong>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+            <div class="progress-text" id="progressText">0 / 10</div>
+        </div>
+    </div>
+
+    <div id="stateList">
+        <!-- States will be added here by JavaScript -->
+    </div>
+
+    <div class="footer">
+        <p>✅ <strong>Done with these 10?</strong></p>
+        <p>You can add more states later from the <a href="http://localhost:8080/DOWNLOAD_REAL_PLATES.html">full 50-state list</a></p>
+        <p style="margin-top: 15px; color: #718096; font-size: 0.9em;">💡 Pro Tip: Add others only when you actually spot them in real life!</p>
+    </div>
+
+    <script>
+        const topStates = [
+            { name: 'California', file: 'california.jpg', info: 'Most populous state' },
+            { name: 'Texas', file: 'texas.jpg', info: '2nd most populous' },
+            { name: 'Florida', file: 'florida.jpg', info: '3rd most populous' },
+            { name: 'New York', file: 'new-york.jpg', info: '4th most populous' },
+            { name: 'Illinois', file: 'illinois.jpg', info: '6th most populous' },
+            { name: 'Ohio', file: 'ohio.jpg', info: '7th most populous' },
+            { name: 'Pennsylvania', file: 'pennsylvania.jpg', info: '5th most populous' },
+            { name: 'Georgia', file: 'georgia.jpg', info: '8th most populous' },
+            { name: 'North Carolina', file: 'north-carolina.jpg', info: '9th most populous' },
+            { name: 'Michigan', file: 'michigan.jpg', info: '10th most populous' }
+        ];
+
+        function getSearchUrl(stateName) {
+            const query = encodeURIComponent(stateName + ' license plate 2023 standard issue');
+            return `https://www.google.com/search?tbm=isch&q=${query}`;
+        }
+
+        const stateList = document.getElementById('stateList');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        
+        let downloadedCount = 0;
+
+        function updateProgress() {
+            const percent = Math.round((downloadedCount / topStates.length) * 100);
+            progressFill.style.width = percent + '%';
+            progressText.textContent = `${downloadedCount} / ${topStates.length}`;
+            
+            if (downloadedCount === topStates.length) {
+                progressText.textContent = '🎉 All Done!';
+                progressFill.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)';
+            }
+        }
+
+        function trackDownload(cardElement) {
+            if (!cardElement.classList.contains('completed')) {
+                downloadedCount++;
+                cardElement.classList.add('completed');
+                updateProgress();
+                
+                // Save progress to localStorage
+                localStorage.setItem('plateDownloadProgress', downloadedCount);
+            }
+        }
+
+        // Load progress from localStorage
+        const savedProgress = localStorage.getItem('plateDownloadProgress');
+        if (savedProgress) {
+            downloadedCount = parseInt(savedProgress);
+            updateProgress();
+        }
+
+        topStates.forEach((state, index) => {
+            const card = document.createElement('div');
+            card.className = 'state-card';
+            card.id = `state-${index}`;
+            const searchUrl = getSearchUrl(state.name);
+            
+            card.innerHTML = `
+                <div class="state-info">
+                    <div class="state-name">${state.name}</div>
+                    <div class="filename">${state.file}</div>
+                </div>
+                <a href="${searchUrl}" target="_blank" class="download-btn" onclick="trackDownload(document.getElementById('state-${index}'))">
+                    🔍 Search & Download
+                </a>
+            `;
+            
+            if (index < downloadedCount) {
+                card.classList.add('completed');
+            }
+            
+            stateList.appendChild(card);
+        });
+
+        updateProgress();
+    </script>
+</body>
+</html>
+

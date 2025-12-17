@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>License Plate Spotter</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Plate Spotter">
+    <meta name="description" content="Track license plates from USA, Canada, and Mexico on your road trips">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="icons/icon-180x180.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180x180.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <i class="fas fa-car"></i>
+                    License Plate Spotter
+                </h1>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalSeen">0</span>
+                        <span class="stat-label">Total Spotted</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalPossible">0</span>
+                        <span class="stat-label">Total Possible</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="percentage">0%</span>
+                        <span class="stat-label">Complete</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <button class="btn btn-primary" id="saveGame">
+                    <i class="fas fa-save"></i>
+                    Save Game
+                </button>
+                <button class="btn btn-secondary" id="loadGame">
+                    <i class="fas fa-upload"></i>
+                    Load Game
+                </button>
+                <button class="btn btn-secondary" id="statsBtn">
+                    <i class="fas fa-chart-line"></i>
+                    Statistics
+                </button>
+                <button class="btn btn-danger" id="newGame">
+                    <i class="fas fa-plus"></i>
+                    New Game
+                </button>
+            </div>
+            <div class="search-group">
+                <select id="plateSelector" class="plate-selector">
+                    <option value="">Jump to a plate...</option>
+                </select>
+                <i class="fas fa-chevron-down selector-icon"></i>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-country="usa">
+                <span class="tab-label">
+                    <span class="flag-icon">🇺🇸</span>
+                    United States
+                </span>
+                <div class="tab-progress-bar">
+                    <div class="tab-progress-fill" id="progress-usa"></div>
+                </div>
+            </button>
+            <button class="tab-btn" data-country="canada">
+                <span class="tab-label">
+                    <span class="flag-icon">🇨🇦</span>
+                    Canada
+                </span>
+                <div class="tab-progress-bar">
+                    <div class="tab-progress-fill" id="progress-canada"></div>
+                </div>
+            </button>
+            <button class="tab-btn" data-country="mexico">
+                <span class="tab-label">
+                    <span class="flag-icon">🇲🇽</span>
+                    Mexico
+                </span>
+                <div class="tab-progress-bar">
+                    <div class="tab-progress-fill" id="progress-mexico"></div>
+                </div>
+            </button>
+        </div>
+
+        <div class="map-container">
+            <button class="map-toggle" id="mapToggle">
+                <i class="fas fa-map"></i>
+                <span id="mapToggleText">Show Map</span>
+                <i class="fas fa-chevron-down" id="mapToggleIcon"></i>
+            </button>
+            <div class="map-view" id="mapView">
+                <div id="mapContent"></div>
+            </div>
+        </div>
+
+        <main class="main-content">
+            <div class="license-plate-grid" id="licensePlateGrid">
+                <!-- License plates will be dynamically generated here -->
+            </div>
+        </main>
+
+        <div class="toast" id="toast">
+            <i class="fas fa-check-circle"></i>
+            <span id="toastMessage">Game saved successfully!</span>
+        </div>
+    </div>
+
+    <button class="back-to-top" id="backToTop" aria-label="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- Statistics Modal -->
+    <div class="stats-modal" id="statsModal">
+        <div class="stats-modal-content">
+            <div class="stats-modal-header">
+                <h2><i class="fas fa-chart-line"></i> Statistics & Analytics</h2>
+                <button class="stats-close-btn" id="statsCloseBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="stats-modal-body" id="statsModalBody">
+                <!-- Content will be dynamically generated -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=2.0.3"></script>
+    <script src="pwa-install.js"></script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((registration) => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch((registrationError) => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

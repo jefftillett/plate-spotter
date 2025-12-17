@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Game save data (optional - remove if you want to track saves)
+# game-save.json
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Node modules (if you add npm later)
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
