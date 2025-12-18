@@ -943,6 +943,15 @@ body::after {
     cursor: pointer;
     transition: background 0.2s;
     white-space: nowrap;
+    font-size: 14px;
+}
+
+.location-picker-search button.btn-home {
+    background: #10b981;
+}
+
+.location-picker-search button.btn-home:hover {
+    background: #059669;
 }
 
 .location-picker-search button:hover {
@@ -1006,6 +1015,81 @@ body::after {
     .location-picker-search button {
         width: 100%;
     }
+}
+
+/* Home Location Settings */
+.home-location-settings {
+    padding: 20px;
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 8px;
+}
+
+.home-location-info {
+    margin-bottom: 20px;
+}
+
+.home-location-address {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1rem;
+    color: #f3f4f6;
+    margin-bottom: 8px;
+}
+
+.home-location-address i {
+    color: #10b981;
+}
+
+.home-location-coords {
+    color: #9ca3af;
+    font-size: 0.9rem;
+    margin-left: 30px;
+}
+
+.home-location-options {
+    padding: 15px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 15px;
+}
+
+.home-location-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.home-location-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.home-location-checkbox span {
+    color: #d1d5db;
+}
+
+.home-location-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.home-location-empty {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.home-location-empty p {
+    margin: 10px 0;
+    color: #d1d5db;
+}
+
+.home-location-empty button {
+    margin-top: 20px;
 }
 
 /* Toast Notification */

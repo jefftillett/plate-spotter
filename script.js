@@ -957,6 +957,45 @@ class LicensePlateGame {
                 });
             }
             
+            // Bind home location settings buttons
+            const setHomeBtn = document.getElementById('setHomeLocationBtn');
+            const changeHomeBtn = document.getElementById('changeHomeLocationBtn');
+            const clearHomeBtn = document.getElementById('clearHomeLocationBtn');
+            const useHomeDefaultCheckbox = document.getElementById('useHomeAsDefaultCheckbox');
+            
+            if (setHomeBtn) {
+                setHomeBtn.addEventListener('click', () => {
+                    this.showHomeLocationSetter();
+                });
+            }
+            
+            if (changeHomeBtn) {
+                changeHomeBtn.addEventListener('click', () => {
+                    this.showHomeLocationSetter();
+                });
+            }
+            
+            if (clearHomeBtn) {
+                clearHomeBtn.addEventListener('click', () => {
+                    if (confirm('Clear your home location?')) {
+                        this.clearHomeLocation();
+                        this.renderStatistics();
+                    }
+                });
+            }
+            
+            if (useHomeDefaultCheckbox) {
+                useHomeDefaultCheckbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        localStorage.setItem('useHomeAsDefault', 'true');
+                        this.showToast('✓ Home will be used as default starting point');
+                    } else {
+                        localStorage.removeItem('useHomeAsDefault');
+                        this.showToast('Default starting point disabled');
+                    }
+                });
+            }
+            
             // Bind long press to "Most in One Area" card
             const mostPlatesCard = document.getElementById('mostPlatesCard');
             if (mostPlatesCard) {
@@ -1506,6 +1545,54 @@ class LicensePlateGame {
                         ` : ''}
                     </div>
                 </div>
+                
+                ${this.renderHomeLocationSection()}
+            </div>
+        `;
+    }
+
+    renderHomeLocationSection() {
+        const homeLocation = this.loadHomeLocation();
+        const useHomeAsDefault = localStorage.getItem('useHomeAsDefault') === 'true';
+        
+        return `
+            <div class="stats-section">
+                <h3><i class="fas fa-home"></i> Home Location Settings</h3>
+                <div class="home-location-settings">
+                    ${homeLocation ? `
+                        <div class="home-location-info">
+                            <div class="home-location-address">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>${homeLocation.address}</span>
+                            </div>
+                            <div class="home-location-coords">
+                                ${homeLocation.lat.toFixed(6)}, ${homeLocation.lng.toFixed(6)}
+                            </div>
+                        </div>
+                        <div class="home-location-options">
+                            <label class="home-location-checkbox">
+                                <input type="checkbox" id="useHomeAsDefaultCheckbox" ${useHomeAsDefault ? 'checked' : ''}>
+                                <span>Automatically use Home as trip starting point</span>
+                            </label>
+                        </div>
+                        <div class="home-location-actions">
+                            <button class="btn btn-secondary btn-small" id="changeHomeLocationBtn">
+                                <i class="fas fa-edit"></i> Change Home
+                            </button>
+                            <button class="btn btn-secondary btn-small" id="clearHomeLocationBtn">
+                                <i class="fas fa-times"></i> Clear Home
+                            </button>
+                        </div>
+                    ` : `
+                        <div class="home-location-empty">
+                            <p>No home location set yet.</p>
+                            <p style="opacity: 0.7; font-size: 0.9em;">Set your home location to quickly start trips from home.</p>
+                            <button class="btn btn-primary" id="setHomeLocationBtn">
+                                <i class="fas fa-home"></i> Set Home Location
+                            </button>
+                        </div>
+                    `}
+                </div>
             </div>
         `;
     }
@@ -2041,6 +2128,7 @@ class LicensePlateGame {
 
     showLocationPickerModal(type) {
         const title = type === 'start' ? 'Set Trip Start Location' : 'Set Trip End Location';
+        const homeLocation = this.loadHomeLocation();
         
         // Create modal HTML
         const modalHTML = `
@@ -2053,14 +2141,16 @@ class LicensePlateGame {
                     <div class="location-picker-search">
                         <input type="text" id="locationSearchInput" placeholder="Search for address or city..." />
                         <button id="locationSearchBtn"><i class="fas fa-search"></i> Search</button>
-                        <button id="useCurrentLocationBtn"><i class="fas fa-location-crosshairs"></i> Current Location</button>
+                        ${homeLocation ? `<button id="useHomeLocationBtn" class="btn-home"><i class="fas fa-home"></i> Use Home</button>` : ''}
+                        <button id="useCurrentLocationBtn"><i class="fas fa-location-crosshairs"></i> Current</button>
                     </div>
                     <div id="locationPickerMap" style="height: 400px; width: 100%;"></div>
                     <div class="location-picker-info" id="selectedLocationInfo">
-                        Click on the map or search for a location
+                        ${homeLocation ? `<div style="opacity: 0.7; font-size: 0.85em;"><i class="fas fa-home"></i> Home: ${homeLocation.address}</div>` : 'Click on the map or search for a location'}
                     </div>
                     <div class="location-picker-actions">
                         <button class="btn btn-secondary" id="cancelLocationPicker">Cancel</button>
+                        <button class="btn btn-success" id="saveAsHomeBtn" disabled><i class="fas fa-home"></i> Save as Home</button>
                         <button class="btn btn-primary" id="confirmLocationPicker" disabled>Confirm Location</button>
                     </div>
                 </div>
@@ -2189,8 +2279,9 @@ class LicensePlateGame {
                 selectedLat = event.data.lat;
                 selectedLng = event.data.lng;
                 
-                // Enable confirm button
+                // Enable confirm and save as home buttons
                 document.getElementById('confirmLocationPicker').disabled = false;
+                document.getElementById('saveAsHomeBtn').disabled = false;
                 
                 // Update info with coordinates (then try to geocode)
                 const infoDiv = document.getElementById('selectedLocationInfo');
@@ -2205,6 +2296,23 @@ class LicensePlateGame {
                 }
             }
         });
+        
+        // Use Home Location button (if exists)
+        const useHomeBtn = document.getElementById('useHomeLocationBtn');
+        if (useHomeBtn) {
+            useHomeBtn.addEventListener('click', () => {
+                const homeLocation = this.loadHomeLocation();
+                if (homeLocation) {
+                    iframe.contentWindow.postMessage({
+                        type: 'setMapView',
+                        lat: homeLocation.lat,
+                        lng: homeLocation.lng,
+                        zoom: 15
+                    }, '*');
+                    this.showToast('Using home location');
+                }
+            });
+        }
         
         // Search button handler
         document.getElementById('locationSearchBtn').addEventListener('click', async () => {
@@ -2277,6 +2385,45 @@ class LicensePlateGame {
             );
         });
         
+        // Save as Home button handler
+        document.getElementById('saveAsHomeBtn').addEventListener('click', async () => {
+            if (selectedLat === null || selectedLng === null) return;
+            
+            // Get the address
+            let address = `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`;
+            try {
+                address = await this.geocodeLocation(selectedLat, selectedLng, 0);
+            } catch (error) {
+                console.log('Could not geocode, using coordinates');
+            }
+            
+            // Save as home location
+            const homeLocation = {
+                lat: selectedLat,
+                lng: selectedLng,
+                address: address
+            };
+            this.saveHomeLocation(homeLocation);
+            
+            // Ask if they want to make it default
+            const makeDefault = confirm('Home location saved!\n\nWould you like to automatically use Home as your trip starting point?');
+            if (makeDefault) {
+                localStorage.setItem('useHomeAsDefault', 'true');
+                this.showToast('✓ Home set as default starting point');
+            } else {
+                this.showToast('✓ Home location saved');
+            }
+            
+            // Update the modal to show home button
+            const infoDiv = document.getElementById('selectedLocationInfo');
+            const homeInfo = document.createElement('div');
+            homeInfo.style.opacity = '0.7';
+            homeInfo.style.fontSize = '0.85em';
+            homeInfo.style.marginTop = '10px';
+            homeInfo.innerHTML = `<i class="fas fa-home"></i> Saved as home location`;
+            infoDiv.appendChild(homeInfo);
+        });
+        
         // Confirm button handler
         document.getElementById('confirmLocationPicker').addEventListener('click', async () => {
             if (selectedLat === null || selectedLng === null) return;
@@ -2328,6 +2475,297 @@ class LicensePlateGame {
         if (modal) {
             modal.remove();
         }
+    }
+
+    showHomeLocationSetter() {
+        // Use the same location picker modal but in "home" mode
+        this.showLocationPickerModalForHome();
+    }
+
+    showLocationPickerModalForHome() {
+        const homeLocation = this.loadHomeLocation();
+        const title = 'Set Home Location';
+        
+        // Create modal HTML
+        const modalHTML = `
+            <div class="location-picker-modal" id="locationPickerModal">
+                <div class="location-picker-content">
+                    <div class="location-picker-header">
+                        <h3>${title}</h3>
+                        <button class="location-picker-close" id="closeLocationPicker">×</button>
+                    </div>
+                    <div class="location-picker-search">
+                        <input type="text" id="locationSearchInput" placeholder="Search for your home address..." />
+                        <button id="locationSearchBtn"><i class="fas fa-search"></i> Search</button>
+                        <button id="useCurrentLocationBtn"><i class="fas fa-location-crosshairs"></i> Current</button>
+                    </div>
+                    <div id="locationPickerMap" style="height: 400px; width: 100%;"></div>
+                    <div class="location-picker-info" id="selectedLocationInfo">
+                        Click on your house on the map or search for your address
+                    </div>
+                    <div class="location-picker-actions">
+                        <button class="btn btn-secondary" id="cancelLocationPicker">Cancel</button>
+                        <button class="btn btn-primary" id="confirmHomeLocation" disabled><i class="fas fa-home"></i> Save as Home</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Initialize the map for home setting
+        setTimeout(() => {
+            this.initLocationPickerMapForHome();
+        }, 100);
+    }
+
+    initLocationPickerMapForHome() {
+        // Reuse most of the location picker logic but for home setting
+        const mapDiv = document.getElementById('locationPickerMap');
+        const mapHTML = this.getLocationPickerMapHTML();
+        
+        const iframe = document.createElement('iframe');
+        iframe.id = 'locationPickerMapIframe';
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+        iframe.srcdoc = mapHTML;
+        mapDiv.appendChild(iframe);
+        
+        let selectedLat = null;
+        let selectedLng = null;
+        
+        // Listen for location selection
+        const messageHandler = async (event) => {
+            if (event.data.type === 'locationSelected') {
+                selectedLat = event.data.lat;
+                selectedLng = event.data.lng;
+                
+                document.getElementById('confirmHomeLocation').disabled = false;
+                
+                const infoDiv = document.getElementById('selectedLocationInfo');
+                infoDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Loading address...`;
+                
+                try {
+                    const address = await this.geocodeLocation(selectedLat, selectedLng, 0);
+                    infoDiv.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${address}`;
+                } catch (error) {
+                    infoDiv.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`;
+                }
+            }
+        };
+        window.addEventListener('message', messageHandler);
+        
+        // Setup search and current location buttons (reuse from location picker)
+        this.setupLocationPickerSearch(iframe);
+        
+        // Confirm button
+        document.getElementById('confirmHomeLocation').addEventListener('click', async () => {
+            if (selectedLat === null || selectedLng === null) return;
+            
+            let address = `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`;
+            try {
+                address = await this.geocodeLocation(selectedLat, selectedLng, 0);
+            } catch (error) {
+                console.log('Could not geocode, using coordinates');
+            }
+            
+            const homeLocation = { lat: selectedLat, lng: selectedLng, address: address };
+            this.saveHomeLocation(homeLocation);
+            
+            const makeDefault = confirm('Home location saved!\n\nWould you like to automatically use Home as your trip starting point?');
+            if (makeDefault) {
+                localStorage.setItem('useHomeAsDefault', 'true');
+                this.showToast('✓ Home set as default starting point');
+            } else {
+                this.showToast('✓ Home location saved');
+            }
+            
+            this.closeLocationPickerModal();
+            window.removeEventListener('message', messageHandler);
+            this.renderStatistics();
+        });
+        
+        // Close/cancel
+        document.getElementById('closeLocationPicker').addEventListener('click', () => {
+            this.closeLocationPickerModal();
+            window.removeEventListener('message', messageHandler);
+        });
+        
+        document.getElementById('cancelLocationPicker').addEventListener('click', () => {
+            this.closeLocationPickerModal();
+            window.removeEventListener('message', messageHandler);
+        });
+    }
+
+    getLocationPickerMapHTML() {
+        return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100%; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        let selectedMarker = null;
+        const map = L.map('map').setView([39.8283, -98.5795], 4);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        map.on('click', function(e) {
+            if (selectedMarker) map.removeLayer(selectedMarker);
+            
+            selectedMarker = L.marker([e.latlng.lat, e.latlng.lng], {
+                icon: L.divIcon({
+                    html: '<div style="background: #ef4444; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    className: '',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                })
+            }).addTo(map);
+            
+            window.parent.postMessage({ type: 'locationSelected', lat: e.latlng.lat, lng: e.latlng.lng }, '*');
+        });
+        
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'setMapView') {
+                map.setView([event.data.lat, event.data.lng], event.data.zoom || 13);
+                
+                if (selectedMarker) map.removeLayer(selectedMarker);
+                
+                selectedMarker = L.marker([event.data.lat, event.data.lng], {
+                    icon: L.divIcon({
+                        html: '<div style="background: #ef4444; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                        className: '',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(map);
+                
+                window.parent.postMessage({ type: 'locationSelected', lat: event.data.lat, lng: event.data.lng }, '*');
+            }
+        });
+    </script>
+</body>
+</html>
+        `;
+    }
+
+    setupLocationPickerSearch(iframe) {
+        // Search button
+        document.getElementById('locationSearchBtn').addEventListener('click', async () => {
+            const searchInput = document.getElementById('locationSearchInput');
+            const query = searchInput.value.trim();
+            if (!query) return;
+            
+            searchInput.disabled = true;
+            document.getElementById('locationSearchBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+            
+            try {
+                const coords = await this.geocodeAddress(query);
+                iframe.contentWindow.postMessage({
+                    type: 'setMapView',
+                    lat: coords.lat,
+                    lng: coords.lng,
+                    zoom: 15
+                }, '*');
+                this.showToast('Location found!');
+            } catch (error) {
+                this.showToast('Location not found. Try a different search.', 'error');
+            } finally {
+                searchInput.disabled = false;
+                document.getElementById('locationSearchBtn').innerHTML = '<i class="fas fa-search"></i> Search';
+            }
+        });
+        
+        // Enter key
+        document.getElementById('locationSearchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('locationSearchBtn').click();
+            }
+        });
+        
+        // Current location
+        document.getElementById('useCurrentLocationBtn').addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                this.showToast('Geolocation not supported', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('useCurrentLocationBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting...';
+            btn.disabled = true;
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    iframe.contentWindow.postMessage({
+                        type: 'setMapView',
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        zoom: 15
+                    }, '*');
+                    btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Current';
+                    btn.disabled = false;
+                    this.showToast('Using current location');
+                },
+                (error) => {
+                    btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Current';
+                    btn.disabled = false;
+                    this.showToast('Could not get location', 'error');
+                }
+            );
+        });
+    }
+
+    // Home Location Management
+    saveHomeLocation(homeLocation) {
+        localStorage.setItem('homeLocation', JSON.stringify(homeLocation));
+        console.log('Home location saved:', homeLocation);
+    }
+
+    loadHomeLocation() {
+        const saved = localStorage.getItem('homeLocation');
+        if (saved) {
+            return JSON.parse(saved);
+        }
+        return null;
+    }
+
+    clearHomeLocation() {
+        localStorage.removeItem('homeLocation');
+        localStorage.removeItem('useHomeAsDefault');
+        this.showToast('Home location cleared');
+    }
+
+    // Check if we should auto-set home as start on new trips
+    checkAutoSetHomeAsStart() {
+        const useHomeAsDefault = localStorage.getItem('useHomeAsDefault') === 'true';
+        const homeLocation = this.loadHomeLocation();
+        const tripData = this.loadTripData();
+        
+        // Only auto-set if enabled, home exists, and start isn't already set
+        if (useHomeAsDefault && homeLocation && !tripData.startOverride) {
+            console.log('Auto-setting home as trip start');
+            tripData.startAddress = homeLocation.address;
+            tripData.startLat = homeLocation.lat;
+            tripData.startLng = homeLocation.lng;
+            tripData.startOverride = true;
+            this.saveTripData(tripData);
+            return true;
+        }
+        return false;
     }
 
     // Keep old method as fallback but it now calls the new modal
