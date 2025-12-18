@@ -388,11 +388,8 @@ class LicensePlateGame {
         if (isSpotted && info.location) {
             const lat = info.location.lat.toFixed(4);
             const lng = info.location.lng.toFixed(4);
-            // Use Apple Maps on iOS, Google Maps otherwise
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const mapUrl = isIOS 
-                ? `maps://?q=${info.location.lat},${info.location.lng}`
-                : `https://www.google.com/maps?q=${info.location.lat},${info.location.lng}`;
+            // Always use Google Maps for consistency
+            const mapUrl = `https://www.google.com/maps?q=${info.location.lat},${info.location.lng}`;
             locationHTML = `<div class="plate-location"><i class="fas fa-map-marker-alt"></i> <a href="${mapUrl}" target="_blank">${lat}, ${lng}</a></div>`;
         }
         
@@ -832,10 +829,8 @@ class LicensePlateGame {
                 break;
             case 'viewLocation':
                 if (info.location) {
-                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                    const mapUrl = isIOS 
-                        ? `maps://?q=${info.location.lat},${info.location.lng}`
-                        : `https://www.google.com/maps?q=${info.location.lat},${info.location.lng}`;
+                    // Always use Google Maps for consistency
+                    const mapUrl = `https://www.google.com/maps?q=${info.location.lat},${info.location.lng}`;
                     window.open(mapUrl, '_blank');
                 }
                 break;
@@ -1741,10 +1736,26 @@ class LicensePlateGame {
             let displayAddress = '';
             let stateProvince = data.principalSubdivision || '';
             
+            // Invalid patterns to filter out
+            const invalidPatterns = [
+                /district\s+\d+/i,
+                /^district$/i,
+                /east\s+\w+\s+county/i,
+                /west\s+\w+\s+county/i,
+                /north\s+\w+\s+county/i,
+                /south\s+\w+\s+county/i,
+                /^county$/i
+            ];
+            
+            const isInvalidName = (name) => {
+                if (!name) return true;
+                return invalidPatterns.some(pattern => pattern.test(name));
+            };
+            
             // Priority 1: Try to get actual city/town name
-            if (data.city && !data.city.toLowerCase().includes('district')) {
+            if (data.city && !isInvalidName(data.city)) {
                 displayAddress = data.city;
-            } else if (data.locality && !data.locality.toLowerCase().includes('district')) {
+            } else if (data.locality && !isInvalidName(data.locality)) {
                 displayAddress = data.locality;
             }
             
@@ -1753,7 +1764,7 @@ class LicensePlateGame {
                 // Order 8-9 are typically city/town level
                 for (let order = 9; order >= 8; order--) {
                     const admin = data.localityInfo.administrative.find(a => a.order === order);
-                    if (admin && !admin.name.toLowerCase().includes('district')) {
+                    if (admin && !isInvalidName(admin.name)) {
                         displayAddress = admin.name;
                         break;
                     }
@@ -1763,27 +1774,41 @@ class LicensePlateGame {
             // Priority 3: Try smaller localities (villages, hamlets - order 10)
             if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
                 const village = data.localityInfo.administrative.find(a => a.order === 10);
-                if (village) {
+                if (village && !isInvalidName(village.name)) {
                     displayAddress = village.name;
                 }
             }
             
-            // Priority 4: Fall back to county (order 6)
+            // Priority 4: Fall back to actual county name (order 6) - but validate it
             if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
                 const county = data.localityInfo.administrative.find(a => a.order === 6);
-                if (county) {
-                    displayAddress = county.name + ' County';
+                if (county && !isInvalidName(county.name)) {
+                    // Only use if it looks like a real county name
+                    if (county.name.toLowerCase().includes('county')) {
+                        displayAddress = county.name;
+                    } else {
+                        displayAddress = county.name + ' County';
+                    }
                 }
             }
             
-            // Priority 5: Use any reasonable name we can find
-            if (!displayAddress) {
-                if (data.localityInfo && data.localityInfo.administrative && data.localityInfo.administrative.length > 0) {
-                    // Get the most specific locality available (highest order number)
-                    const mostSpecific = data.localityInfo.administrative.reduce((max, curr) => 
-                        curr.order > max.order ? curr : max
-                    );
-                    displayAddress = mostSpecific.name;
+            // Priority 5: Try order 7 (township/municipality)
+            if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                const township = data.localityInfo.administrative.find(a => a.order === 7);
+                if (township && !isInvalidName(township.name)) {
+                    displayAddress = township.name;
+                }
+            }
+            
+            // Priority 6: Use the most specific valid locality available
+            if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                // Sort by order descending and find first valid name
+                const sortedAdmins = [...data.localityInfo.administrative].sort((a, b) => b.order - a.order);
+                for (const admin of sortedAdmins) {
+                    if (!isInvalidName(admin.name)) {
+                        displayAddress = admin.name;
+                        break;
+                    }
                 }
             }
             
@@ -1794,7 +1819,7 @@ class LicensePlateGame {
             
             // Final fallback
             if (!displayAddress) {
-                throw new Error('No location data available');
+                throw new Error('No valid location data available');
             }
             
             console.log(`Geocoded address: ${displayAddress}`);
