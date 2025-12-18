@@ -851,6 +851,163 @@ body::after {
     color: #047857;
 }
 
+/* Location Picker Modal */
+.location-picker-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.location-picker-content {
+    background: #1f2937;
+    border-radius: 12px;
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.location-picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #374151;
+}
+
+.location-picker-header h3 {
+    margin: 0;
+    color: #f3f4f6;
+    font-size: 1.25rem;
+}
+
+.location-picker-close {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.location-picker-close:hover {
+    color: #f3f4f6;
+}
+
+.location-picker-search {
+    display: flex;
+    gap: 10px;
+    padding: 15px 20px;
+    background: #111827;
+    border-bottom: 1px solid #374151;
+}
+
+.location-picker-search input {
+    flex: 1;
+    padding: 10px 15px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #f3f4f6;
+    font-size: 14px;
+}
+
+.location-picker-search input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.location-picker-search button {
+    padding: 10px 15px;
+    background: #3b82f6;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.location-picker-search button:hover {
+    background: #2563eb;
+}
+
+.location-picker-search button:disabled {
+    background: #374151;
+    cursor: not-allowed;
+}
+
+#locationPickerMap {
+    flex: 1;
+    min-height: 400px;
+    background: #111827;
+}
+
+.location-picker-info {
+    padding: 15px 20px;
+    background: #111827;
+    border-top: 1px solid #374151;
+    border-bottom: 1px solid #374151;
+    color: #d1d5db;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+}
+
+.location-picker-info i {
+    margin-right: 8px;
+    color: #3b82f6;
+}
+
+.location-picker-actions {
+    display: flex;
+    gap: 10px;
+    padding: 20px;
+    justify-content: flex-end;
+}
+
+.location-picker-actions .btn {
+    padding: 10px 20px;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .location-picker-modal {
+        padding: 0;
+    }
+    
+    .location-picker-content {
+        max-width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+    
+    .location-picker-search {
+        flex-direction: column;
+    }
+    
+    .location-picker-search button {
+        width: 100%;
+    }
+}
+
 /* Toast Notification */
 .toast {
     position: fixed;

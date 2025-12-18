@@ -2035,64 +2035,302 @@ class LicensePlateGame {
     }
 
     async editTripLocation(type) {
-        const promptMessage = type === 'start' 
-            ? 'Enter trip start address (e.g., "San Francisco, CA" or "Townsend, TN"):' 
-            : 'Enter trip end address (e.g., "New York, NY" or "Glendale, AZ"):';
+        // Open map picker modal instead of text prompt
+        this.showLocationPickerModal(type);
+    }
+
+    showLocationPickerModal(type) {
+        const title = type === 'start' ? 'Set Trip Start Location' : 'Set Trip End Location';
         
-        const address = prompt(promptMessage);
-        if (!address || address.trim() === '') {
-            console.log('User cancelled or entered empty address');
-            return;
-        }
+        // Create modal HTML
+        const modalHTML = `
+            <div class="location-picker-modal" id="locationPickerModal">
+                <div class="location-picker-content">
+                    <div class="location-picker-header">
+                        <h3>${title}</h3>
+                        <button class="location-picker-close" id="closeLocationPicker">×</button>
+                    </div>
+                    <div class="location-picker-search">
+                        <input type="text" id="locationSearchInput" placeholder="Search for address or city..." />
+                        <button id="locationSearchBtn"><i class="fas fa-search"></i> Search</button>
+                        <button id="useCurrentLocationBtn"><i class="fas fa-location-crosshairs"></i> Current Location</button>
+                    </div>
+                    <div id="locationPickerMap" style="height: 400px; width: 100%;"></div>
+                    <div class="location-picker-info" id="selectedLocationInfo">
+                        Click on the map or search for a location
+                    </div>
+                    <div class="location-picker-actions">
+                        <button class="btn btn-secondary" id="cancelLocationPicker">Cancel</button>
+                        <button class="btn btn-primary" id="confirmLocationPicker" disabled>Confirm Location</button>
+                    </div>
+                </div>
+            </div>
+        `;
         
-        const tripData = this.loadTripData();
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
         
-        // Show loading toast
-        this.showToast('Geocoding address... (this may take a moment)');
+        // Initialize the map
+        setTimeout(() => {
+            this.initLocationPickerMap(type);
+        }, 100);
+    }
+
+    initLocationPickerMap(type) {
+        const mapDiv = document.getElementById('locationPickerMap');
         
-        try {
-            console.log(`Attempting to geocode ${type} address: "${address}"`);
+        // Create Leaflet map
+        const mapHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100%; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        let selectedMarker = null;
+        let selectedLocation = null;
+        
+        // Initialize map (default to US center)
+        const map = L.map('map').setView([39.8283, -98.5795], 4);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Handle map clicks
+        map.on('click', function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
             
-            // Geocode the address to get coordinates
-            const coords = await this.geocodeAddress(address);
+            // Remove previous marker
+            if (selectedMarker) {
+                map.removeLayer(selectedMarker);
+            }
             
-            console.log(`Successfully geocoded to: ${coords.lat}, ${coords.lng}`);
+            // Add new marker
+            selectedMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    html: '<div style="background: #ef4444; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    className: '',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                })
+            }).addTo(map);
+            
+            selectedLocation = { lat, lng };
+            
+            // Notify parent
+            window.parent.postMessage({
+                type: 'locationSelected',
+                lat: lat,
+                lng: lng
+            }, '*');
+        });
         
+        // Listen for commands from parent
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'setMapView') {
+                map.setView([event.data.lat, event.data.lng], event.data.zoom || 13);
+                
+                // Add marker at this location
+                if (selectedMarker) {
+                    map.removeLayer(selectedMarker);
+                }
+                
+                selectedMarker = L.marker([event.data.lat, event.data.lng], {
+                    icon: L.divIcon({
+                        html: '<div style="background: #ef4444; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                        className: '',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(map);
+                
+                selectedLocation = { lat: event.data.lat, lng: event.data.lng };
+                
+                window.parent.postMessage({
+                    type: 'locationSelected',
+                    lat: event.data.lat,
+                    lng: event.data.lng
+                }, '*');
+            }
+        });
+    </script>
+</body>
+</html>
+        `;
+        
+        // Create iframe for map
+        const iframe = document.createElement('iframe');
+        iframe.id = 'locationPickerMapIframe';
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+        iframe.srcdoc = mapHTML;
+        mapDiv.appendChild(iframe);
+        
+        // Set up state
+        let selectedLat = null;
+        let selectedLng = null;
+        
+        // Listen for location selection from iframe
+        window.addEventListener('message', async (event) => {
+            if (event.data.type === 'locationSelected') {
+                selectedLat = event.data.lat;
+                selectedLng = event.data.lng;
+                
+                // Enable confirm button
+                document.getElementById('confirmLocationPicker').disabled = false;
+                
+                // Update info with coordinates (then try to geocode)
+                const infoDiv = document.getElementById('selectedLocationInfo');
+                infoDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Loading address for ${selectedLat.toFixed(4)}, ${selectedLng.toFixed(4)}...`;
+                
+                // Try to reverse geocode to get address
+                try {
+                    const address = await this.geocodeLocation(selectedLat, selectedLng, 0);
+                    infoDiv.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${address}`;
+                } catch (error) {
+                    infoDiv.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`;
+                }
+            }
+        });
+        
+        // Search button handler
+        document.getElementById('locationSearchBtn').addEventListener('click', async () => {
+            const searchInput = document.getElementById('locationSearchInput');
+            const query = searchInput.value.trim();
+            if (!query) return;
+            
+            searchInput.disabled = true;
+            document.getElementById('locationSearchBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+            
+            try {
+                const coords = await this.geocodeAddress(query);
+                
+                // Tell iframe to move to this location
+                iframe.contentWindow.postMessage({
+                    type: 'setMapView',
+                    lat: coords.lat,
+                    lng: coords.lng,
+                    zoom: 15
+                }, '*');
+                
+                this.showToast('Location found!');
+            } catch (error) {
+                this.showToast('Location not found. Try a different search.', 'error');
+            } finally {
+                searchInput.disabled = false;
+                document.getElementById('locationSearchBtn').innerHTML = '<i class="fas fa-search"></i> Search';
+            }
+        });
+        
+        // Enter key in search box
+        document.getElementById('locationSearchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('locationSearchBtn').click();
+            }
+        });
+        
+        // Current location button
+        document.getElementById('useCurrentLocationBtn').addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                this.showToast('Geolocation not supported by browser', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('useCurrentLocationBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting location...';
+            btn.disabled = true;
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    iframe.contentWindow.postMessage({
+                        type: 'setMapView',
+                        lat: lat,
+                        lng: lng,
+                        zoom: 15
+                    }, '*');
+                    
+                    btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Current Location';
+                    btn.disabled = false;
+                    this.showToast('Using current location');
+                },
+                (error) => {
+                    btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Current Location';
+                    btn.disabled = false;
+                    this.showToast('Could not get current location', 'error');
+                }
+            );
+        });
+        
+        // Confirm button handler
+        document.getElementById('confirmLocationPicker').addEventListener('click', async () => {
+            if (selectedLat === null || selectedLng === null) return;
+            
+            const tripData = this.loadTripData();
+            
+            // Get the address
+            let address = `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`;
+            try {
+                address = await this.geocodeLocation(selectedLat, selectedLng, 0);
+            } catch (error) {
+                console.log('Could not geocode, using coordinates');
+            }
+            
             if (type === 'start') {
-                tripData.startAddress = coords.displayName || address;
+                tripData.startAddress = address;
+                tripData.startLat = selectedLat;
+                tripData.startLng = selectedLng;
                 tripData.startOverride = true;
-                tripData.startLat = coords.lat;
-                tripData.startLng = coords.lng;
-                console.log('Saved start location:', tripData.startAddress);
             } else {
-                tripData.endAddress = coords.displayName || address;
+                tripData.endAddress = address;
+                tripData.endLat = selectedLat;
+                tripData.endLng = selectedLng;
                 tripData.endOverride = true;
-                tripData.endLat = coords.lat;
-                tripData.endLng = coords.lng;
-                console.log('Saved end location:', tripData.endAddress);
             }
-        
+            
             this.saveTripData(tripData);
+            this.showToast(`✓ Trip ${type} location set!`);
             
-            // Show success message with matched address if different from input
-            let successMsg = `✓ Trip ${type} location set!`;
-            if (coords.matchedAddress && coords.matchedAddress !== address) {
-                successMsg += ` (matched: ${coords.matchedAddress})`;
-            }
-            this.showToast(successMsg);
+            // Close modal
+            this.closeLocationPickerModal();
             
-            // Refresh ONLY the route tab content without switching tabs
+            // Refresh route tab
             this.refreshRouteTab();
-            
-        } catch (error) {
-            console.error(`✗ Failed to set trip ${type}:`, error);
-            
-            // Show user-friendly error message
-            const errorMsg = error.message || 'Unknown error';
-            alert(`Could not find address: "${address}"\n\n${errorMsg}\n\nTry:\n• "City, State" format (e.g., "Townsend, TN")\n• Removing street address\n• Using just city name`);
+        });
+        
+        // Close/cancel handlers
+        document.getElementById('closeLocationPicker').addEventListener('click', () => {
+            this.closeLocationPickerModal();
+        });
+        
+        document.getElementById('cancelLocationPicker').addEventListener('click', () => {
+            this.closeLocationPickerModal();
+        });
+    }
+
+    closeLocationPickerModal() {
+        const modal = document.getElementById('locationPickerModal');
+        if (modal) {
+            modal.remove();
         }
     }
 
+    // Keep old method as fallback but it now calls the new modal
     async geocodeAddress(address) {
         // Use Nominatim (OpenStreetMap) to geocode the address to coordinates
         // Try progressively simpler versions if exact address doesn't work
