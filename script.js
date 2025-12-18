@@ -1762,16 +1762,41 @@ class LicensePlateGame {
             const invalidPatterns = [
                 /district\s+\d+/i,
                 /^district$/i,
-                /east\s+\w+\s+county/i,
-                /west\s+\w+\s+county/i,
-                /north\s+\w+\s+county/i,
-                /south\s+\w+\s+county/i,
-                /^county$/i
+                /^east\s+\w+\s+county$/i,
+                /^west\s+\w+\s+county$/i,
+                /^north\s+\w+\s+county$/i,
+                /^south\s+\w+\s+county$/i,
+                /^county$/i,
+                /\bdistrict\b/i  // Any "district" mention
             ];
             
             const isInvalidName = (name) => {
                 if (!name) return true;
-                return invalidPatterns.some(pattern => pattern.test(name));
+                const trimmed = name.trim();
+                const lower = trimmed.toLowerCase();
+                
+                // Explicit checks for common invalid patterns
+                if (lower === 'east tennessee county') {
+                    console.log(`Filtering out invalid name: "${trimmed}" (East Tennessee County)`);
+                    return true;
+                }
+                
+                // Check each pattern
+                for (const pattern of invalidPatterns) {
+                    if (pattern.test(trimmed)) {
+                        console.log(`Filtering out invalid name: "${trimmed}" (matched pattern: ${pattern})`);
+                        return true;
+                    }
+                }
+                
+                // Additional check: if it's a directional county that doesn't exist
+                // (e.g., "East Tennessee County" when Tennessee doesn't have directional counties)
+                if (/^(east|west|north|south)\s+/i.test(trimmed) && /county$/i.test(trimmed)) {
+                    console.log(`Filtering out directional county: "${trimmed}"`);
+                    return true;
+                }
+                
+                return false;
             };
             
             // Priority 1: Try to get actual city/town name
@@ -1865,7 +1890,7 @@ class LicensePlateGame {
 
     // Load location address for a specific element
     async loadLocationAddressForElement(elementId, lat, lng, delay = 0) {
-        console.log(`loadLocationAddressForElement called: ${elementId}, ${lat}, ${lng}, delay: ${delay}`);
+        console.log(`loadLocationAddressForElement called: ${elementId}, ${lat}, ${lng}, delay: ${delay}ms`);
         
         const element = document.getElementById(elementId);
         if (!element) {
@@ -1875,12 +1900,14 @@ class LicensePlateGame {
         
         // Add delay if specified (for rate limiting)
         if (delay > 0) {
+            console.log(`Waiting ${delay}ms before geocoding ${elementId}...`);
             await new Promise(resolve => setTimeout(resolve, delay));
+            console.log(`Delay complete for ${elementId}, starting geocode...`);
         }
         
         try {
-            console.log(`Starting geocode for ${elementId}`);
-        const address = await this.geocodeLocation(lat, lng);
+            console.log(`Starting geocode for ${elementId} at ${lat}, ${lng}`);
+            const address = await this.geocodeLocation(lat, lng);
             console.log(`Geocode completed for ${elementId}: ${address}`);
             
             // Check if element still exists (user might have switched tabs)
@@ -1889,12 +1916,12 @@ class LicensePlateGame {
                 // Don't show icon in the text, just the address
                 checkElement.innerHTML = address;
                 checkElement.setAttribute('data-address', address);
-                console.log(`Updated element ${elementId} with address: ${address}`);
+                console.log(`✓ Updated element ${elementId} with address: ${address}`);
             } else {
-                console.log(`Element ${elementId} no longer exists after geocoding`);
+                console.log(`✗ Element ${elementId} no longer exists after geocoding`);
             }
         } catch (error) {
-            console.error(`Error loading address for ${elementId}:`, error);
+            console.error(`✗ Error loading address for ${elementId}:`, error);
             const checkElement = document.getElementById(elementId);
             if (checkElement) {
                 // Show coordinates on error
@@ -1923,9 +1950,9 @@ class LicensePlateGame {
         }, 12000);
         
         try {
-            // Try to load the address with delay for rate limiting
+            // Try to load the address with delay for rate limiting (400ms between requests)
             console.log(`Calling loadLocationAddressForElement for ${elementId}`);
-            await this.loadLocationAddressForElement(elementId, lat, lng, index * 600);
+            await this.loadLocationAddressForElement(elementId, lat, lng, index * 400);
             clearTimeout(timeoutId);
             console.log(`Successfully loaded address for ${elementId}`);
         } catch (error) {
@@ -1962,7 +1989,7 @@ class LicensePlateGame {
         localStorage.setItem('tripData', JSON.stringify(tripData));
     }
 
-    editTripLocation(type) {
+    async editTripLocation(type) {
         const promptMessage = type === 'start' 
             ? 'Enter trip start address (e.g., "San Francisco, CA"):' 
             : 'Enter trip end address (e.g., "New York, NY"):';
@@ -1972,24 +1999,66 @@ class LicensePlateGame {
         
         const tripData = this.loadTripData();
         
-        if (type === 'start') {
-            tripData.startAddress = address;
-            tripData.startOverride = true;
-            // Optionally geocode to get coordinates
-            tripData.startLat = null;
-            tripData.startLng = null;
-        } else {
-            tripData.endAddress = address;
-            tripData.endOverride = true;
-            tripData.endLat = null;
-            tripData.endLng = null;
+        // Show loading toast
+        this.showToast('Geocoding address...');
+        
+        try {
+            // Geocode the address to get coordinates
+            const coords = await this.geocodeAddress(address);
+            
+            if (type === 'start') {
+                tripData.startAddress = address;
+                tripData.startOverride = true;
+                tripData.startLat = coords.lat;
+                tripData.startLng = coords.lng;
+            } else {
+                tripData.endAddress = address;
+                tripData.endOverride = true;
+                tripData.endLat = coords.lat;
+                tripData.endLng = coords.lng;
+            }
+            
+            this.saveTripData(tripData);
+            this.showToast(`Trip ${type} location updated!`);
+            
+            // Refresh ONLY the route tab content without switching tabs
+            this.refreshRouteTab();
+        } catch (error) {
+            console.error('Geocoding failed:', error);
+            this.showToast('Failed to geocode address. Please try again.', 'error');
         }
-        
-        this.saveTripData(tripData);
-        this.showToast(`Trip ${type} location updated!`);
-        
-        // Refresh ONLY the route tab content without switching tabs
-        this.refreshRouteTab();
+    }
+
+    async geocodeAddress(address) {
+        // Use Nominatim (OpenStreetMap) to geocode the address to coordinates
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
+                {
+                    headers: {
+                        'User-Agent': 'LicensePlateSpotterGame/1.0'
+                    }
+                }
+            );
+            
+            if (!response.ok) {
+                throw new Error('Geocoding service error');
+            }
+            
+            const data = await response.json();
+            
+            if (data.length === 0) {
+                throw new Error('Address not found');
+            }
+            
+            return {
+                lat: parseFloat(data[0].lat),
+                lng: parseFloat(data[0].lon)
+            };
+        } catch (error) {
+            console.error('Address geocoding error:', error);
+            throw error;
+        }
     }
 
     refreshRouteTab() {
