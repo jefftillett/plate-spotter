@@ -2073,7 +2073,13 @@ class LicensePlateGame {
             }
         
             this.saveTripData(tripData);
-            this.showToast(`✓ Trip ${type} set to: ${coords.displayName || address}`);
+            
+            // Show success message with matched address if different from input
+            let successMsg = `✓ Trip ${type} location set!`;
+            if (coords.matchedAddress && coords.matchedAddress !== address) {
+                successMsg += ` (matched: ${coords.matchedAddress})`;
+            }
+            this.showToast(successMsg);
             
             // Refresh ONLY the route tab content without switching tabs
             this.refreshRouteTab();
@@ -2089,47 +2095,111 @@ class LicensePlateGame {
 
     async geocodeAddress(address) {
         // Use Nominatim (OpenStreetMap) to geocode the address to coordinates
+        // Try progressively simpler versions if exact address doesn't work
         console.log(`Geocoding address: "${address}"`);
         
-        try {
-            // Add a small delay to respect Nominatim's usage policy (max 1 request per second)
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
-                {
-                    headers: {
-                        'User-Agent': 'LicensePlateSpotterGame/1.0'
-                    }
-                }
-            );
-            
-            console.log(`Nominatim response status: ${response.status}`);
-            
-            if (!response.ok) {
-                throw new Error(`Geocoding service error: ${response.status} ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            console.log('Nominatim response data:', data);
-            
-            if (!data || data.length === 0) {
-                throw new Error('Address not found. Try a simpler format like "Townsend, TN" or just "Glendale, AZ"');
-            }
-            
-            const result = {
-                lat: parseFloat(data[0].lat),
-                lng: parseFloat(data[0].lon),
-                displayName: data[0].display_name
-            };
-            
-            console.log(`✓ Geocoded to: ${result.lat}, ${result.lng} (${result.displayName})`);
-            return result;
-            
-        } catch (error) {
-            console.error('✗ Address geocoding error:', error);
-            throw error;
+        // Generate fallback address variations
+        const addressVariations = [address]; // Start with exact address
+        
+        // If it looks like a full address with zip code, create simpler versions
+        const zipMatch = address.match(/\s+\d{5}(-\d{4})?$/);
+        if (zipMatch) {
+            // Version without zip: "610 Dry Valley Rd Townsend, TN 37882" -> "610 Dry Valley Rd Townsend, TN"
+            addressVariations.push(address.replace(zipMatch[0], '').trim());
         }
+        
+        // Try to extract just street + city + state
+        // Pattern: "123 Street Name City, ST" or "Street Name City, ST"
+        const streetCityMatch = address.match(/^([^,]+),?\s+([A-Z]{2})/i);
+        if (streetCityMatch) {
+            // Get everything before the state
+            const beforeState = streetCityMatch[1].trim();
+            const state = streetCityMatch[2].trim();
+            
+            // Split on whitespace and try to find city (usually last 1-2 words before state)
+            const parts = beforeState.split(/\s+/);
+            if (parts.length >= 3) {
+                // Try: "Street City, ST"
+                const possibleCity = parts[parts.length - 1];
+                const street = parts.slice(0, -1).join(' ');
+                addressVariations.push(`${street}, ${possibleCity}, ${state}`);
+                
+                // Try: "City, ST"
+                addressVariations.push(`${possibleCity}, ${state}`);
+            }
+        }
+        
+        // Try to extract just "City, State" as last resort
+        const cityStateMatch = address.match(/([A-Za-z\s]+),?\s+([A-Z]{2})\s*\d*/);
+        if (cityStateMatch) {
+            const words = cityStateMatch[1].trim().split(/\s+/);
+            const city = words[words.length - 1]; // Last word is usually the city
+            const state = cityStateMatch[2];
+            addressVariations.push(`${city}, ${state}`);
+        }
+        
+        // Remove duplicates
+        const uniqueVariations = [...new Set(addressVariations)];
+        console.log(`Will try ${uniqueVariations.length} address variations:`, uniqueVariations);
+        
+        let lastError = null;
+        
+        // Try each variation
+        for (let i = 0; i < uniqueVariations.length; i++) {
+            const tryAddress = uniqueVariations[i];
+            console.log(`Attempt ${i + 1}/${uniqueVariations.length}: "${tryAddress}"`);
+            
+            try {
+                // Add a small delay to respect Nominatim's usage policy (max 1 request per second)
+                if (i > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1100));
+                } else {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+                
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(tryAddress)}&format=json&limit=1`,
+                    {
+                        headers: {
+                            'User-Agent': 'LicensePlateSpotterGame/1.0'
+                        }
+                    }
+                );
+                
+                console.log(`  Response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    const result = {
+                        lat: parseFloat(data[0].lat),
+                        lng: parseFloat(data[0].lon),
+                        displayName: data[0].display_name,
+                        matchedAddress: tryAddress
+                    };
+                    
+                    console.log(`✓ SUCCESS! Matched: "${tryAddress}"`);
+                    console.log(`  Coords: ${result.lat}, ${result.lng}`);
+                    console.log(`  Full: ${result.displayName}`);
+                    
+                    return result;
+                } else {
+                    console.log(`  ✗ No results for this variation`);
+                }
+                
+            } catch (error) {
+                console.log(`  ✗ Error: ${error.message}`);
+                lastError = error;
+            }
+        }
+        
+        // If we get here, none of the variations worked
+        console.error('✗ All address variations failed');
+        throw new Error(`Could not find any location matching "${address}". Try just the city and state (e.g., "Townsend, TN")`);
     }
 
     refreshRouteTab() {
