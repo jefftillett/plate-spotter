@@ -1752,108 +1752,153 @@ class LicensePlateGame {
             }
             
             const data = await response.json();
-            console.log('Geocoding response:', data);
+            console.log('Geocoding response for', lat, lng, ':', data);
             
             // Build a nice address string focusing on actual city/town names
             let displayAddress = '';
             let stateProvince = data.principalSubdivision || '';
             
-            // Invalid patterns to filter out
+            // Invalid patterns to filter out - be very aggressive
             const invalidPatterns = [
-                /district\s+\d+/i,
-                /^district$/i,
-                /^east\s+\w+\s+county$/i,
-                /^west\s+\w+\s+county$/i,
-                /^north\s+\w+\s+county$/i,
-                /^south\s+\w+\s+county$/i,
-                /^county$/i,
-                /\bdistrict\b/i  // Any "district" mention
+                /district/i,  // Any "district" mention at all
+                /^east\s+\w+/i,  // Anything starting with "East X"
+                /^west\s+\w+/i,  // Anything starting with "West X"
+                /^north\s+\w+/i,  // Anything starting with "North X"
+                /^south\s+\w+/i,  // Anything starting with "South X"
+                /^county$/i,  // Just "county"
+                /unincorporated/i,  // Unincorporated areas
+                /township\s+\d+/i  // Generic townships
             ];
             
             const isInvalidName = (name) => {
-                if (!name) return true;
+                if (!name) {
+                    console.log(`⊗ Rejecting: empty name`);
+                    return true;
+                }
+                
                 const trimmed = name.trim();
                 const lower = trimmed.toLowerCase();
                 
-                // Explicit checks for common invalid patterns
-                if (lower === 'east tennessee county') {
-                    console.log(`Filtering out invalid name: "${trimmed}" (East Tennessee County)`);
+                // Explicit blocklist
+                const blocklist = [
+                    'east tennessee county',
+                    'west tennessee county',
+                    'north tennessee county',
+                    'south tennessee county',
+                    'district',
+                    'county'
+                ];
+                
+                if (blocklist.includes(lower)) {
+                    console.log(`⊗ Rejecting: "${trimmed}" (in blocklist)`);
                     return true;
                 }
                 
                 // Check each pattern
                 for (const pattern of invalidPatterns) {
                     if (pattern.test(trimmed)) {
-                        console.log(`Filtering out invalid name: "${trimmed}" (matched pattern: ${pattern})`);
+                        console.log(`⊗ Rejecting: "${trimmed}" (matched pattern: ${pattern})`);
                         return true;
                     }
                 }
                 
-                // Additional check: if it's a directional county that doesn't exist
-                // (e.g., "East Tennessee County" when Tennessee doesn't have directional counties)
-                if (/^(east|west|north|south)\s+/i.test(trimmed) && /county$/i.test(trimmed)) {
-                    console.log(`Filtering out directional county: "${trimmed}"`);
-                    return true;
+                // Additional check: if it contains "County" and a direction
+                if (lower.includes('county')) {
+                    const words = lower.split(/\s+/);
+                    if (words.includes('east') || words.includes('west') || words.includes('north') || words.includes('south')) {
+                        console.log(`⊗ Rejecting: "${trimmed}" (directional + county)`);
+                        return true;
+                    }
                 }
                 
+                console.log(`✓ Accepting: "${trimmed}"`);
                 return false;
             };
             
             // Priority 1: Try to get actual city/town name
+            console.log('Priority 1: Checking data.city and data.locality');
+            if (data.city) console.log(`  data.city = "${data.city}"`);
+            if (data.locality) console.log(`  data.locality = "${data.locality}"`);
+            
             if (data.city && !isInvalidName(data.city)) {
                 displayAddress = data.city;
+                console.log(`→ Using data.city: "${displayAddress}"`);
             } else if (data.locality && !isInvalidName(data.locality)) {
                 displayAddress = data.locality;
+                console.log(`→ Using data.locality: "${displayAddress}"`);
             }
             
             // Priority 2: Look through administrative levels for a city (order 8-9)
             if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                console.log('Priority 2: Checking admin orders 8-9 (city/town level)');
                 // Order 8-9 are typically city/town level
                 for (let order = 9; order >= 8; order--) {
                     const admin = data.localityInfo.administrative.find(a => a.order === order);
-                    if (admin && !isInvalidName(admin.name)) {
-                        displayAddress = admin.name;
-                        break;
+                    if (admin) {
+                        console.log(`  order ${order}: "${admin.name}"`);
+                        if (!isInvalidName(admin.name)) {
+                            displayAddress = admin.name;
+                            console.log(`→ Using admin order ${order}: "${displayAddress}"`);
+                            break;
+                        }
                     }
                 }
             }
             
             // Priority 3: Try smaller localities (villages, hamlets - order 10)
             if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                console.log('Priority 3: Checking admin order 10 (villages/hamlets)');
                 const village = data.localityInfo.administrative.find(a => a.order === 10);
-                if (village && !isInvalidName(village.name)) {
-                    displayAddress = village.name;
+                if (village) {
+                    console.log(`  order 10: "${village.name}"`);
+                    if (!isInvalidName(village.name)) {
+                        displayAddress = village.name;
+                        console.log(`→ Using admin order 10: "${displayAddress}"`);
+                    }
                 }
             }
             
             // Priority 4: Fall back to actual county name (order 6) - but validate it
             if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                console.log('Priority 4: Checking admin order 6 (county level)');
                 const county = data.localityInfo.administrative.find(a => a.order === 6);
-                if (county && !isInvalidName(county.name)) {
-                    // Only use if it looks like a real county name
-                    if (county.name.toLowerCase().includes('county')) {
-                        displayAddress = county.name;
-                    } else {
-                        displayAddress = county.name + ' County';
+                if (county) {
+                    console.log(`  order 6: "${county.name}"`);
+                    if (!isInvalidName(county.name)) {
+                        // Only use if it looks like a real county name
+                        if (county.name.toLowerCase().includes('county')) {
+                            displayAddress = county.name;
+                        } else {
+                            displayAddress = county.name + ' County';
+                        }
+                        console.log(`→ Using admin order 6: "${displayAddress}"`);
                     }
                 }
             }
             
             // Priority 5: Try order 7 (township/municipality)
             if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                console.log('Priority 5: Checking admin order 7 (township/municipality)');
                 const township = data.localityInfo.administrative.find(a => a.order === 7);
-                if (township && !isInvalidName(township.name)) {
-                    displayAddress = township.name;
+                if (township) {
+                    console.log(`  order 7: "${township.name}"`);
+                    if (!isInvalidName(township.name)) {
+                        displayAddress = township.name;
+                        console.log(`→ Using admin order 7: "${displayAddress}"`);
+                    }
                 }
             }
             
             // Priority 6: Use the most specific valid locality available
             if (!displayAddress && data.localityInfo && data.localityInfo.administrative) {
+                console.log('Priority 6: Checking all admin levels (highest order first)');
                 // Sort by order descending and find first valid name
                 const sortedAdmins = [...data.localityInfo.administrative].sort((a, b) => b.order - a.order);
                 for (const admin of sortedAdmins) {
+                    console.log(`  order ${admin.order}: "${admin.name}"`);
                     if (!isInvalidName(admin.name)) {
                         displayAddress = admin.name;
+                        console.log(`→ Using admin order ${admin.order}: "${displayAddress}"`);
                         break;
                     }
                 }
@@ -1907,7 +1952,7 @@ class LicensePlateGame {
         
         try {
             console.log(`Starting geocode for ${elementId} at ${lat}, ${lng}`);
-            const address = await this.geocodeLocation(lat, lng);
+        const address = await this.geocodeLocation(lat, lng);
             console.log(`Geocode completed for ${elementId}: ${address}`);
             
             // Check if element still exists (user might have switched tabs)
@@ -2005,20 +2050,20 @@ class LicensePlateGame {
         try {
             // Geocode the address to get coordinates
             const coords = await this.geocodeAddress(address);
-            
-            if (type === 'start') {
-                tripData.startAddress = address;
-                tripData.startOverride = true;
+        
+        if (type === 'start') {
+            tripData.startAddress = address;
+            tripData.startOverride = true;
                 tripData.startLat = coords.lat;
                 tripData.startLng = coords.lng;
-            } else {
-                tripData.endAddress = address;
-                tripData.endOverride = true;
+        } else {
+            tripData.endAddress = address;
+            tripData.endOverride = true;
                 tripData.endLat = coords.lat;
                 tripData.endLng = coords.lng;
-            }
-            
-            this.saveTripData(tripData);
+        }
+        
+        this.saveTripData(tripData);
             this.showToast(`Trip ${type} location updated!`);
             
             // Refresh ONLY the route tab content without switching tabs
@@ -2330,13 +2375,64 @@ class LicensePlateGame {
             maxZoom: 19
         }).addTo(map);
         
-        // Add route polyline
-        var routeLine = L.polyline([${routeCoords.join(',')}], {
-            color: '#fbbf24',
-            weight: 4,
-            opacity: 0.8,
-            dashArray: '10, 10'
-        }).addTo(map);
+        // Fetch and draw road-following route
+        async function drawRoute() {
+            const waypoints = [${routeCoords.join(',')}];
+            
+            // If we have too many waypoints, sample them to stay under API limits
+            let routeWaypoints = waypoints;
+            if (waypoints.length > 50) {
+                const step = Math.ceil(waypoints.length / 50);
+                routeWaypoints = [
+                    waypoints[0],  // Always include start
+                    ...waypoints.slice(1, -1).filter((_, i) => i % step === 0),  // Sample middle
+                    waypoints[waypoints.length - 1]  // Always include end
+                ];
+            }
+            
+            console.log('Fetching route with', routeWaypoints.length, 'waypoints');
+            
+            try {
+                // Use OSRM (free, no API key) for driving directions
+                const coords = routeWaypoints.map(wp => \`\${wp[1]},\${wp[0]}\`).join(';');
+                const response = await fetch(
+                    \`https://router.project-osrm.org/route/v1/driving/\${coords}?overview=full&geometries=geojson\`
+                );
+                
+                if (!response.ok) throw new Error('Routing failed');
+                
+                const data = await response.json();
+                console.log('Route response received');
+                
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0];
+                    const coordinates = route.geometry.coordinates.map(c => [c[1], c[0]]);
+                    
+                    // Draw the road-following route
+                    L.polyline(coordinates, {
+                        color: '#fbbf24',
+                        weight: 4,
+                        opacity: 0.8,
+                        smoothFactor: 1
+                    }).addTo(map);
+                    
+                    console.log('✓ Road-following route drawn with', coordinates.length, 'points');
+                } else {
+                    throw new Error('No route found');
+                }
+            } catch (error) {
+                console.error('✗ Route fetch failed, drawing direct lines:', error);
+                // Fallback: draw straight lines between waypoints
+                L.polyline(waypoints, {
+                    color: '#fbbf24',
+                    weight: 3,
+                    opacity: 0.6,
+                    dashArray: '10, 10'
+                }).addTo(map);
+            }
+        }
+        
+        drawRoute();
         
         // Add plate location markers
         ${plateMarkersJS}
