@@ -2036,47 +2036,65 @@ class LicensePlateGame {
 
     async editTripLocation(type) {
         const promptMessage = type === 'start' 
-            ? 'Enter trip start address (e.g., "San Francisco, CA"):' 
-            : 'Enter trip end address (e.g., "New York, NY"):';
+            ? 'Enter trip start address (e.g., "San Francisco, CA" or "Townsend, TN"):' 
+            : 'Enter trip end address (e.g., "New York, NY" or "Glendale, AZ"):';
         
         const address = prompt(promptMessage);
-        if (!address) return;
+        if (!address || address.trim() === '') {
+            console.log('User cancelled or entered empty address');
+            return;
+        }
         
         const tripData = this.loadTripData();
         
         // Show loading toast
-        this.showToast('Geocoding address...');
+        this.showToast('Geocoding address... (this may take a moment)');
         
         try {
+            console.log(`Attempting to geocode ${type} address: "${address}"`);
+            
             // Geocode the address to get coordinates
             const coords = await this.geocodeAddress(address);
+            
+            console.log(`Successfully geocoded to: ${coords.lat}, ${coords.lng}`);
         
-        if (type === 'start') {
-            tripData.startAddress = address;
-            tripData.startOverride = true;
+            if (type === 'start') {
+                tripData.startAddress = coords.displayName || address;
+                tripData.startOverride = true;
                 tripData.startLat = coords.lat;
                 tripData.startLng = coords.lng;
-        } else {
-            tripData.endAddress = address;
-            tripData.endOverride = true;
+                console.log('Saved start location:', tripData.startAddress);
+            } else {
+                tripData.endAddress = coords.displayName || address;
+                tripData.endOverride = true;
                 tripData.endLat = coords.lat;
                 tripData.endLng = coords.lng;
-        }
+                console.log('Saved end location:', tripData.endAddress);
+            }
         
-        this.saveTripData(tripData);
-            this.showToast(`Trip ${type} location updated!`);
+            this.saveTripData(tripData);
+            this.showToast(`✓ Trip ${type} set to: ${coords.displayName || address}`);
             
             // Refresh ONLY the route tab content without switching tabs
             this.refreshRouteTab();
+            
         } catch (error) {
-            console.error('Geocoding failed:', error);
-            this.showToast('Failed to geocode address. Please try again.', 'error');
+            console.error(`✗ Failed to set trip ${type}:`, error);
+            
+            // Show user-friendly error message
+            const errorMsg = error.message || 'Unknown error';
+            alert(`Could not find address: "${address}"\n\n${errorMsg}\n\nTry:\n• "City, State" format (e.g., "Townsend, TN")\n• Removing street address\n• Using just city name`);
         }
     }
 
     async geocodeAddress(address) {
         // Use Nominatim (OpenStreetMap) to geocode the address to coordinates
+        console.log(`Geocoding address: "${address}"`);
+        
         try {
+            // Add a small delay to respect Nominatim's usage policy (max 1 request per second)
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
                 {
@@ -2086,22 +2104,30 @@ class LicensePlateGame {
                 }
             );
             
+            console.log(`Nominatim response status: ${response.status}`);
+            
             if (!response.ok) {
-                throw new Error('Geocoding service error');
+                throw new Error(`Geocoding service error: ${response.status} ${response.statusText}`);
             }
             
             const data = await response.json();
+            console.log('Nominatim response data:', data);
             
-            if (data.length === 0) {
-                throw new Error('Address not found');
+            if (!data || data.length === 0) {
+                throw new Error('Address not found. Try a simpler format like "Townsend, TN" or just "Glendale, AZ"');
             }
             
-            return {
+            const result = {
                 lat: parseFloat(data[0].lat),
-                lng: parseFloat(data[0].lon)
+                lng: parseFloat(data[0].lon),
+                displayName: data[0].display_name
             };
+            
+            console.log(`✓ Geocoded to: ${result.lat}, ${result.lng} (${result.displayName})`);
+            return result;
+            
         } catch (error) {
-            console.error('Address geocoding error:', error);
+            console.error('✗ Address geocoding error:', error);
             throw error;
         }
     }
@@ -2408,11 +2434,11 @@ class LicensePlateGame {
                     const route = data.routes[0];
                     const coordinates = route.geometry.coordinates.map(c => [c[1], c[0]]);
                     
-                    // Draw the road-following route
+                    // Draw the road-following route in bright green
                     L.polyline(coordinates, {
-                        color: '#fbbf24',
+                        color: '#22c55e',
                         weight: 4,
-                        opacity: 0.8,
+                        opacity: 0.9,
                         smoothFactor: 1
                     }).addTo(map);
                     
@@ -2422,11 +2448,11 @@ class LicensePlateGame {
                 }
             } catch (error) {
                 console.error('✗ Route fetch failed, drawing direct lines:', error);
-                // Fallback: draw straight lines between waypoints
+                // Fallback: draw straight lines between waypoints in bright green
                 L.polyline(waypoints, {
-                    color: '#fbbf24',
+                    color: '#22c55e',
                     weight: 3,
-                    opacity: 0.6,
+                    opacity: 0.7,
                     dashArray: '10, 10'
                 }).addTo(map);
             }
