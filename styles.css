@@ -1022,6 +1022,9 @@ body::after {
     padding: 20px;
     background: rgba(30, 41, 59, 0.5);
     border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
 }
 
 .home-location-info {
@@ -1081,15 +1084,21 @@ body::after {
 .home-location-empty {
     text-align: center;
     padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .home-location-empty p {
     margin: 10px 0;
     color: #d1d5db;
+    max-width: 400px;
 }
 
 .home-location-empty button {
     margin-top: 20px;
+    align-self: center;
 }
 
 /* Toast Notification */
