@@ -1943,6 +1943,24 @@ img[data-src] {
     margin-left: 8px;
 }
 
+.trip-location-editable {
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: inline-block;
+}
+
+.trip-location-editable:hover {
+    background: rgba(251, 191, 36, 0.1);
+    color: #fbbf24;
+}
+
+.trip-location-editable:active {
+    transform: scale(0.98);
+    background: rgba(251, 191, 36, 0.2);
+}
+
 /* Location List */
 .location-list {
     background: rgba(251, 191, 36, 0.05);

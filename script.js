@@ -909,18 +909,28 @@ class LicensePlateGame {
         
         // Bind trip controls (if they exist)
         setTimeout(() => {
-            const setStartBtn = document.getElementById('setTripStartBtn');
-            const setEndBtn = document.getElementById('setTripEndBtn');
             const clearTripBtn = document.getElementById('clearTripBtn');
             
-            if (setStartBtn) {
-                setStartBtn.addEventListener('click', () => this.setTripLocation('start'));
-            }
-            if (setEndBtn) {
-                setEndBtn.addEventListener('click', () => this.setTripLocation('end'));
-            }
             if (clearTripBtn) {
                 clearTripBtn.addEventListener('click', () => this.clearTripOverride());
+            }
+            
+            // Bind editable trip locations
+            const tripStartEditable = document.getElementById('tripStartEditable');
+            const tripEndEditable = document.getElementById('tripEndEditable');
+            
+            if (tripStartEditable) {
+                tripStartEditable.addEventListener('click', () => {
+                    this.editTripLocation('start');
+                });
+                tripStartEditable.style.cursor = 'pointer';
+            }
+            
+            if (tripEndEditable) {
+                tripEndEditable.addEventListener('click', () => {
+                    this.editTripLocation('end');
+                });
+                tripEndEditable.style.cursor = 'pointer';
             }
             
             // Load start/end addresses if not manually set
@@ -1080,10 +1090,10 @@ class LicensePlateGame {
             });
             
             Promise.race([
-                this.geocodeLocation(lat, lng).then(address => {
-                    const locationElement = document.getElementById('popupLocation');
-                    if (locationElement) {
-                        locationElement.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
+            this.geocodeLocation(lat, lng).then(address => {
+                const locationElement = document.getElementById('popupLocation');
+                if (locationElement) {
+                    locationElement.innerHTML = `<i class="fas fa-location-dot"></i> ${address}`;
                     }
                 }),
                 timeoutPromise
@@ -1602,17 +1612,6 @@ class LicensePlateGame {
             <div class="stats-route">
                 <div class="stats-section">
                     <h3><i class="fas fa-map-marked"></i> Trip Overview</h3>
-                    <div class="trip-controls">
-                        <button class="btn btn-primary btn-small" id="setTripStartBtn">
-                            <i class="fas fa-map-marker-alt"></i> Set Start Location
-                        </button>
-                        <button class="btn btn-primary btn-small" id="setTripEndBtn">
-                            <i class="fas fa-flag-checkered"></i> Set End Location
-                        </button>
-                        <button class="btn btn-secondary btn-small" id="clearTripBtn">
-                            <i class="fas fa-times"></i> Clear Override
-                        </button>
-                    </div>
                     
                     <div class="trip-info">
                         ${tripData.startAddress ? `
@@ -1620,7 +1619,10 @@ class LicensePlateGame {
                                 <i class="fas fa-location-dot"></i>
                                 <div>
                                     <strong>Start:</strong>
-                                    <span>${tripData.startAddress}</span>
+                                    <span class="trip-location-editable" id="tripStartEditable" data-type="start" title="Click to change">
+                                        ${tripData.startAddress}
+                                        <i class="fas fa-edit" style="margin-left: 8px; font-size: 0.8em; color: #fbbf24;"></i>
+                                    </span>
                                     ${tripData.startOverride ? '<span class="trip-override-badge">Manual</span>' : '<span class="trip-auto-badge">Auto</span>'}
                                 </div>
                             </div>
@@ -1629,7 +1631,10 @@ class LicensePlateGame {
                                 <i class="fas fa-location-dot"></i>
                                 <div>
                                     <strong>Start:</strong>
-                                    <span id="tripStartLocation"><i class="fas fa-spinner fa-spin"></i> Loading location...</span>
+                                    <span class="trip-location-editable" id="tripStartEditable" data-type="start" title="Click to change">
+                                        <span id="tripStartLocation"><i class="fas fa-spinner fa-spin"></i> Loading location...</span>
+                                        <i class="fas fa-edit" style="margin-left: 8px; font-size: 0.8em; color: #fbbf24;"></i>
+                                    </span>
                                     <span class="trip-auto-badge">Auto (First Plate)</span>
                                 </div>
                             </div>
@@ -1640,7 +1645,10 @@ class LicensePlateGame {
                                 <i class="fas fa-flag-checkered"></i>
                                 <div>
                                     <strong>End:</strong>
-                                    <span>${tripData.endAddress}</span>
+                                    <span class="trip-location-editable" id="tripEndEditable" data-type="end" title="Click to change">
+                                        ${tripData.endAddress}
+                                        <i class="fas fa-edit" style="margin-left: 8px; font-size: 0.8em; color: #fbbf24;"></i>
+                                    </span>
                                     ${tripData.endOverride ? '<span class="trip-override-badge">Manual</span>' : '<span class="trip-auto-badge">Auto</span>'}
                                 </div>
                             </div>
@@ -1649,11 +1657,25 @@ class LicensePlateGame {
                                 <i class="fas fa-flag-checkered"></i>
                                 <div>
                                     <strong>End:</strong>
-                                    <span id="tripEndLocation"><i class="fas fa-spinner fa-spin"></i> Loading location...</span>
+                                    <span class="trip-location-editable" id="tripEndEditable" data-type="end" title="Click to change">
+                                        <span id="tripEndLocation"><i class="fas fa-spinner fa-spin"></i> Loading location...</span>
+                                        <i class="fas fa-edit" style="margin-left: 8px; font-size: 0.8em; color: #fbbf24;"></i>
+                                    </span>
                                     <span class="trip-auto-badge">Auto (Last Plate)</span>
                                 </div>
                             </div>
                         `}
+                        
+                        ${tripData.startOverride || tripData.endOverride ? `
+                            <div class="trip-info-item" style="border-bottom: none; padding-top: 15px;">
+                                <i class="fas fa-times-circle" style="color: #ef4444;"></i>
+                                <div style="flex: 1;">
+                                    <button class="btn btn-secondary btn-small" id="clearTripBtn" style="width: 100%;">
+                                        <i class="fas fa-undo"></i> Reset to Auto-Detect
+                                    </button>
+                                </div>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
                 
@@ -1858,7 +1880,7 @@ class LicensePlateGame {
         
         try {
             console.log(`Starting geocode for ${elementId}`);
-            const address = await this.geocodeLocation(lat, lng);
+        const address = await this.geocodeLocation(lat, lng);
             console.log(`Geocode completed for ${elementId}: ${address}`);
             
             // Check if element still exists (user might have switched tabs)
@@ -1940,7 +1962,7 @@ class LicensePlateGame {
         localStorage.setItem('tripData', JSON.stringify(tripData));
     }
 
-    setTripLocation(type) {
+    editTripLocation(type) {
         const promptMessage = type === 'start' 
             ? 'Enter trip start address (e.g., "San Francisco, CA"):' 
             : 'Enter trip end address (e.g., "New York, NY"):';
@@ -1953,21 +1975,124 @@ class LicensePlateGame {
         if (type === 'start') {
             tripData.startAddress = address;
             tripData.startOverride = true;
+            // Optionally geocode to get coordinates
+            tripData.startLat = null;
+            tripData.startLng = null;
         } else {
             tripData.endAddress = address;
             tripData.endOverride = true;
+            tripData.endLat = null;
+            tripData.endLng = null;
         }
         
         this.saveTripData(tripData);
-        this.showToast(`Trip ${type} location set!`);
-        this.renderStatistics(); // Refresh the view
+        this.showToast(`Trip ${type} location updated!`);
+        
+        // Refresh ONLY the route tab content without switching tabs
+        this.refreshRouteTab();
+    }
+
+    refreshRouteTab() {
+        // Get current stats
+        const stats = this.calculateStatistics();
+        
+        // Find the route tab content
+        const routeTabContent = document.getElementById('stats-route');
+        if (routeTabContent) {
+            // Re-render just the route content
+            routeTabContent.innerHTML = this.renderRouteStats(stats);
+            
+            // Re-bind the event handlers
+            this.bindRouteTabHandlers(stats);
+            
+            // If the route map was open, re-open it with updated data
+            const container = document.getElementById('routeMapContainer');
+            if (container && container.classList.contains('open')) {
+                const tripData = this.loadTripData();
+                setTimeout(() => {
+                    const iframe = document.getElementById('routeMapIframe');
+                    if (iframe && stats.locations.length > 0) {
+                        this.renderRouteMap(iframe, stats.locations, tripData);
+                    }
+                }, 100);
+            }
+        }
+    }
+
+    bindRouteTabHandlers(stats) {
+        // Re-bind all the route tab event handlers
+        const clearTripBtn = document.getElementById('clearTripBtn');
+        
+        if (clearTripBtn) {
+            clearTripBtn.addEventListener('click', () => this.clearTripOverride());
+        }
+        
+        // Bind editable trip locations
+        const tripStartEditable = document.getElementById('tripStartEditable');
+        const tripEndEditable = document.getElementById('tripEndEditable');
+        
+        if (tripStartEditable) {
+            tripStartEditable.addEventListener('click', () => {
+                this.editTripLocation('start');
+            });
+            tripStartEditable.style.cursor = 'pointer';
+        }
+        
+        if (tripEndEditable) {
+            tripEndEditable.addEventListener('click', () => {
+                this.editTripLocation('end');
+            });
+            tripEndEditable.style.cursor = 'pointer';
+        }
+        
+        // Load start/end addresses if not manually set
+        const tripStartEl = document.getElementById('tripStartLocation');
+        const tripEndEl = document.getElementById('tripEndLocation');
+        
+        if (tripStartEl && stats.locations.length > 0) {
+            const firstLoc = stats.locations[0];
+            this.loadTripLocationAddress('tripStartLocation', firstLoc.lat, firstLoc.lng);
+        }
+        
+        if (tripEndEl && stats.locations.length > 0) {
+            const lastLoc = stats.locations[stats.locations.length - 1];
+            this.loadTripLocationAddress('tripEndLocation', lastLoc.lat, lastLoc.lng);
+        }
+        
+        // Bind route map toggle
+        const routeMapToggle = document.getElementById('routeMapToggle');
+        if (routeMapToggle) {
+            routeMapToggle.addEventListener('click', () => {
+                const tripData = this.loadTripData();
+                this.toggleRouteMap(stats, tripData);
+            });
+        }
+        
+        // Load addresses for spotted locations
+        setTimeout(() => {
+            console.log(`Starting to load addresses for ${stats.locations.length} locations`);
+            stats.locations.forEach((loc, index) => {
+                console.log(`Queueing location ${index}: ${loc.state}, ${loc.lat}, ${loc.lng}`);
+                
+                this.loadLocationAddress(loc.lat, loc.lng, index).catch(error => {
+                    console.error(`Catch block - Failed to load address for location ${index}:`, error);
+                });
+            });
+        }, 200);
+    }
+
+    setTripLocation(type) {
+        // This method is deprecated - use editTripLocation instead
+        this.editTripLocation(type);
     }
 
     clearTripOverride() {
-        if (confirm('Clear manual trip locations and use auto-detected from plates?')) {
+        if (confirm('Reset trip locations to auto-detected from plates?')) {
             localStorage.removeItem('tripData');
-            this.showToast('Trip override cleared');
-            this.renderStatistics(); // Refresh the view
+            this.showToast('Trip reset to auto-detect');
+            
+            // Refresh ONLY the route tab content without switching tabs
+            this.refreshRouteTab();
         }
     }
 
