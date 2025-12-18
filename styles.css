@@ -2193,6 +2193,82 @@ img[data-src] {
     padding: 14px 20px;
 }
 
+/* Route Map Collapsible */
+.route-map-toggle {
+    width: 100%;
+    padding: 15px 20px;
+    background: rgba(251, 191, 36, 0.1);
+    border: 2px solid rgba(251, 191, 36, 0.3);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #f9fafb;
+    transition: all 0.3s ease;
+    margin-bottom: 15px;
+}
+
+.route-map-toggle:hover {
+    background: rgba(251, 191, 36, 0.2);
+    border-color: #fbbf24;
+}
+
+.route-map-toggle.active {
+    background: rgba(251, 191, 36, 0.25);
+    border-color: #fbbf24;
+}
+
+.route-map-toggle i:first-child {
+    color: #fbbf24;
+}
+
+#routeMapToggleIcon {
+    margin-left: auto;
+    transition: transform 0.3s ease;
+    color: #9ca3af;
+}
+
+.route-map-toggle.active #routeMapToggleIcon {
+    color: #fbbf24;
+}
+
+.route-map-container {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+}
+
+.route-map-container.open {
+    max-height: 600px;
+}
+
+.route-map-view {
+    background: rgba(251, 191, 36, 0.05);
+    border: 2px solid rgba(251, 191, 36, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    overflow: hidden;
+}
+
+.route-map-iframe {
+    width: 100%;
+    height: 500px;
+    border: none;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.route-map-info {
+    margin-top: 10px;
+    text-align: center;
+    color: #d1d5db;
+    font-size: 0.85rem;
+}
+
 /* Interactive Map Modal */
 .map-modal {
     position: fixed;
@@ -2318,5 +2394,13 @@ img[data-src] {
     .stats-tab {
         padding: 10px 14px;
         font-size: 0.85rem;
+    }
+    
+    .route-map-iframe {
+        height: 400px;
+    }
+    
+    .route-map-container.open {
+        max-height: 500px;
     }
 }

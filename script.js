@@ -928,6 +928,26 @@ class LicensePlateGame {
                 clearTripBtn.addEventListener('click', () => this.clearTripOverride());
             }
             
+            // Load start/end addresses if not manually set
+            const tripStartEl = document.getElementById('tripStartLocation');
+            const tripEndEl = document.getElementById('tripEndLocation');
+            
+            if (tripStartEl && stats.locations.length > 0) {
+                const firstLoc = stats.locations[0];
+                this.loadTripLocationAddress('tripStartLocation', firstLoc.lat, firstLoc.lng);
+            }
+            
+            if (tripEndEl && stats.locations.length > 0) {
+                const lastLoc = stats.locations[stats.locations.length - 1];
+                this.loadTripLocationAddress('tripEndLocation', lastLoc.lat, lastLoc.lng);
+            }
+            
+            // Bind route map toggle
+            const routeMapToggle = document.getElementById('routeMapToggle');
+            if (routeMapToggle) {
+                routeMapToggle.addEventListener('click', () => this.toggleRouteMap(stats));
+            }
+            
             // Bind long press to "Most in One Area" card
             const mostPlatesCard = document.getElementById('mostPlatesCard');
             if (mostPlatesCard) {
@@ -1575,6 +1595,10 @@ class LicensePlateGame {
             `;
         }
         
+        // Get addresses for first and last locations
+        const firstLoc = stats.locations[0];
+        const lastLoc = stats.locations[stats.locations.length - 1];
+        
         return `
             <div class="stats-route">
                 <div class="stats-section">
@@ -1606,7 +1630,7 @@ class LicensePlateGame {
                                 <i class="fas fa-location-dot"></i>
                                 <div>
                                     <strong>Start:</strong>
-                                    <span>${stats.firstSpotted.state}, ${stats.firstSpotted.country.toUpperCase()}</span>
+                                    <span id="tripStartLocation"><i class="fas fa-spinner fa-spin"></i> Loading location...</span>
                                     <span class="trip-auto-badge">Auto (First Plate)</span>
                                 </div>
                             </div>
@@ -1626,11 +1650,31 @@ class LicensePlateGame {
                                 <i class="fas fa-flag-checkered"></i>
                                 <div>
                                     <strong>End:</strong>
-                                    <span>${stats.lastSpotted.state}, ${stats.lastSpotted.country.toUpperCase()}</span>
+                                    <span id="tripEndLocation"><i class="fas fa-spinner fa-spin"></i> Loading location...</span>
                                     <span class="trip-auto-badge">Auto (Last Plate)</span>
                                 </div>
                             </div>
                         `}
+                    </div>
+                </div>
+                
+                <div class="stats-section">
+                    <button class="route-map-toggle" id="routeMapToggle">
+                        <i class="fas fa-route"></i>
+                        <span id="routeMapToggleText">Show Route Map</span>
+                        <i class="fas fa-chevron-down" id="routeMapToggleIcon"></i>
+                    </button>
+                    <div class="route-map-container" id="routeMapContainer">
+                        <div class="route-map-view">
+                            <iframe 
+                                class="route-map-iframe" 
+                                id="routeMapIframe"
+                                loading="lazy">
+                            </iframe>
+                            <div class="route-map-info">
+                                <strong>${stats.locations.length} locations</strong> tracked on your journey
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -1894,6 +1938,143 @@ class LicensePlateGame {
             this.showToast('Trip override cleared');
             this.renderStatistics(); // Refresh the view
         }
+    }
+
+    async loadTripLocationAddress(elementId, lat, lng) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        
+        try {
+            const address = await this.geocodeLocation(lat, lng);
+            const checkElement = document.getElementById(elementId);
+            if (checkElement) {
+                checkElement.innerHTML = address;
+            }
+        } catch (error) {
+            console.error('Error loading trip location:', error);
+            const checkElement = document.getElementById(elementId);
+            if (checkElement) {
+                checkElement.innerHTML = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            }
+        }
+    }
+
+    toggleRouteMap(stats) {
+        const container = document.getElementById('routeMapContainer');
+        const toggle = document.getElementById('routeMapToggle');
+        const toggleText = document.getElementById('routeMapToggleText');
+        const toggleIcon = document.getElementById('routeMapToggleIcon');
+        const iframe = document.getElementById('routeMapIframe');
+        
+        if (!container || !toggle) return;
+        
+        const isOpen = container.classList.contains('open');
+        
+        if (isOpen) {
+            container.classList.remove('open');
+            toggle.classList.remove('active');
+            toggleText.textContent = 'Show Route Map';
+            toggleIcon.style.transform = '';
+        } else {
+            container.classList.add('open');
+            toggle.classList.add('active');
+            toggleText.textContent = 'Hide Route Map';
+            toggleIcon.style.transform = 'rotate(180deg)';
+            
+            // Generate the map with all markers
+            if (iframe && stats.locations.length > 0) {
+                this.renderRouteMap(iframe, stats.locations);
+            }
+        }
+        
+        this.triggerHapticFeedback('light');
+    }
+
+    renderRouteMap(iframe, locations) {
+        // Calculate bounds for the map
+        const lats = locations.map(loc => loc.lat);
+        const lngs = locations.map(loc => loc.lng);
+        
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+        const minLng = Math.min(...lngs);
+        const maxLng = Math.max(...lngs);
+        
+        const centerLat = (minLat + maxLat) / 2;
+        const centerLng = (minLng + maxLng) / 2;
+        
+        // Create markers HTML
+        const markersJS = locations.map((loc, index) => {
+            let color = 'blue';
+            let icon = 'map-pin';
+            let label = `${index + 1}. ${loc.state}`;
+            
+            if (index === 0) {
+                color = 'green';
+                icon = 'play-circle';
+                label = `START: ${loc.state}`;
+            } else if (index === locations.length - 1) {
+                color = 'red';
+                icon = 'flag-checkered';
+                label = `END: ${loc.state}`;
+            }
+            
+            return `L.marker([${loc.lat}, ${loc.lng}], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background: ${color}; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${index + 1}</div>',
+                    iconSize: [30, 30]
+                })
+            }).addTo(map).bindPopup('${label}');`;
+        }).join('\n');
+        
+        // Create polyline for the route
+        const routeCoords = locations.map(loc => `[${loc.lat}, ${loc.lng}]`).join(',');
+        
+        // Create HTML with Leaflet map
+        const mapHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { width: 100%; height: 100vh; }
+        .leaflet-popup-content { font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        var map = L.map('map').setView([${centerLat}, ${centerLng}], 6);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Add route polyline
+        var routeLine = L.polyline([${routeCoords}], {
+            color: '#fbbf24',
+            weight: 4,
+            opacity: 0.7,
+            dashArray: '10, 10'
+        }).addTo(map);
+        
+        // Add markers
+        ${markersJS}
+        
+        // Fit bounds to show all markers
+        var bounds = L.latLngBounds([${routeCoords}]);
+        map.fitBounds(bounds, { padding: [50, 50] });
+    </script>
+</body>
+</html>`;
+        
+        iframe.srcdoc = mapHTML;
     }
 
     saveGameData() {
