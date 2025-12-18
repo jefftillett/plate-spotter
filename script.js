@@ -512,6 +512,7 @@ class LicensePlateGame {
         
         this.showToast(`${state} spotted! ✓`);
         this.updateStats();
+        this.updateSVGMap(); // Update map colors
         this.renderLicensePlates();
         this.updateMapIfOpen();
         this.saveGameData();
@@ -534,6 +535,7 @@ class LicensePlateGame {
         
         this.showToast(`${state} unmarked`);
         this.updateStats();
+        this.updateSVGMap(); // Update map colors
         this.renderLicensePlates();
         this.updateMapIfOpen();
         this.saveGameData();
@@ -657,6 +659,7 @@ class LicensePlateGame {
                 this.licensePlateData = this.initializeLicensePlateData();
                 this.renderLicensePlates();
                 this.updateStats();
+                this.updateSVGMap(); // Update the map to clear spotted states
                 this.saveGameData();
                 this.showToast('New game started!');
             }
@@ -3399,6 +3402,9 @@ class LicensePlateGame {
                 }
                 
                 if (stateInfo) {
+                    // Store stateName for later updates
+                    element.dataset.stateName = stateName;
+                    
                     // Set initial style - ensure we override SVG internal styles
                 element.style.cursor = 'pointer';
                 element.style.transition = 'all 0.3s ease';
@@ -3440,8 +3446,31 @@ class LicensePlateGame {
                 });
             }
         }
-    });
-}
+        });
+    }
+
+    updateSVGMap() {
+        // Update SVG map colors based on current state data
+        const container = document.getElementById('svgMapContainer');
+        if (!container) return;
+        
+        const data = this.licensePlateData[this.currentCountry];
+        const mapElements = container.querySelectorAll('path[data-state-name], circle[data-state-name], g[data-state-name]');
+        
+        mapElements.forEach(element => {
+            const stateName = element.dataset.stateName;
+            if (stateName && data[stateName]) {
+                const stateInfo = data[stateName];
+                
+                // Update fill based on current status
+                if (stateInfo.count > 0) {
+                    element.style.fill = '#48bb78'; // Green for spotted
+                } else {
+                    element.style.fill = '#e2e8f0'; // Gray for unspotted
+                }
+            }
+        });
+    }
 
     // Haptic Feedback (works on Android, limited on iOS Safari)
     triggerHapticFeedback(style = 'medium') {
