@@ -945,7 +945,11 @@ class LicensePlateGame {
             // Bind route map toggle
             const routeMapToggle = document.getElementById('routeMapToggle');
             if (routeMapToggle) {
-                routeMapToggle.addEventListener('click', () => this.toggleRouteMap(stats));
+                routeMapToggle.addEventListener('click', () => {
+                    // Get trip data for manual overrides
+                    const tripData = this.loadTripData();
+                    this.toggleRouteMap(stats, tripData);
+                });
             }
             
             // Bind long press to "Most in One Area" card
@@ -1685,7 +1689,7 @@ class LicensePlateGame {
                             <div class="location-item" id="location-${index}" data-lat="${loc.lat}" data-lng="${loc.lng}">
                                 <div class="location-name">${loc.state}, ${loc.country.toUpperCase()}</div>
                                 <a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" class="location-address-link" id="location-address-${index}">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading location...
+                                    ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}
                                 </a>
                             </div>
                         `).join('')}
@@ -1694,18 +1698,16 @@ class LicensePlateGame {
             </div>
         `;
         
-        // Load addresses for all locations with proper error handling
+        // Load addresses for all locations in background - start with coordinates showing
         setTimeout(() => {
             console.log(`Starting to load addresses for ${stats.locations.length} locations`);
             stats.locations.forEach((loc, index) => {
                 console.log(`Queueing location ${index}: ${loc.state}, ${loc.lat}, ${loc.lng}`);
+                
+                // Call loadLocationAddress which has built-in timeout protection
                 this.loadLocationAddress(loc.lat, loc.lng, index).catch(error => {
-                    console.error(`Failed to load address for location ${index}:`, error);
-                    // Ensure we show coordinates on any error
-                    const element = document.getElementById(`location-address-${index}`);
-                    if (element) {
-                        element.innerHTML = `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`;
-                    }
+                    console.error(`Catch block - Failed to load address for location ${index}:`, error);
+                    // This is a safety net - the function should handle its own errors
                 });
             });
         }, 200);
@@ -1859,30 +1861,34 @@ class LicensePlateGame {
     // Load location address for route list items
     async loadLocationAddress(lat, lng, index) {
         const elementId = `location-address-${index}`;
+        console.log(`loadLocationAddress: Starting for ${elementId} at ${lat}, ${lng}`);
         
-        // Create a timeout promise that will show coordinates after 15 seconds
-        const timeoutPromise = new Promise((resolve) => {
-            setTimeout(() => {
-                console.log(`Timeout reached for ${elementId}, showing coordinates`);
-                const element = document.getElementById(elementId);
-                if (element && element.innerHTML.includes('Loading')) {
-                    element.innerHTML = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-                }
-                resolve();
-            }, 15000);
-        });
-        
-        // Race between loading the address and the timeout
-        try {
-            await Promise.race([
-                this.loadLocationAddressForElement(elementId, lat, lng, index * 500),
-                timeoutPromise
-            ]);
-        } catch (error) {
-            console.error(`Error in loadLocationAddress for ${elementId}:`, error);
+        // Start with a timeout that will ensure we don't stay on "Loading" forever
+        const timeoutId = setTimeout(() => {
+            console.log(`Timeout hit for ${elementId} - checking if still loading`);
             const element = document.getElementById(elementId);
             if (element) {
+                const currentText = element.textContent || '';
+                // If it's still showing coordinates (initial state), leave it
+                // This means geocoding is taking too long but we already have a fallback
+                console.log(`Element ${elementId} current state: ${currentText}`);
+            }
+        }, 12000);
+        
+        try {
+            // Try to load the address with delay for rate limiting
+            console.log(`Calling loadLocationAddressForElement for ${elementId}`);
+            await this.loadLocationAddressForElement(elementId, lat, lng, index * 600);
+            clearTimeout(timeoutId);
+            console.log(`Successfully loaded address for ${elementId}`);
+        } catch (error) {
+            clearTimeout(timeoutId);
+            console.error(`Error in loadLocationAddress for ${elementId}:`, error);
+            // The loadLocationAddressForElement should handle fallback, but double-check
+            const element = document.getElementById(elementId);
+            if (element && element.textContent.includes('Loading')) {
                 element.innerHTML = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                console.log(`Set fallback coordinates for ${elementId}`);
             }
         }
     }
@@ -1959,7 +1965,7 @@ class LicensePlateGame {
         }
     }
 
-    toggleRouteMap(stats) {
+    toggleRouteMap(stats, tripData) {
         const container = document.getElementById('routeMapContainer');
         const toggle = document.getElementById('routeMapToggle');
         const toggleText = document.getElementById('routeMapToggleText');
@@ -1981,55 +1987,104 @@ class LicensePlateGame {
             toggleText.textContent = 'Hide Route Map';
             toggleIcon.style.transform = 'rotate(180deg)';
             
-            // Generate the map with all markers
+            // Generate the map with all markers and consider manual overrides
             if (iframe && stats.locations.length > 0) {
-                this.renderRouteMap(iframe, stats.locations);
+                this.renderRouteMap(iframe, stats.locations, tripData);
             }
         }
         
         this.triggerHapticFeedback('light');
     }
 
-    renderRouteMap(iframe, locations) {
-        // Calculate bounds for the map
-        const lats = locations.map(loc => loc.lat);
-        const lngs = locations.map(loc => loc.lng);
+    renderRouteMap(iframe, locations, tripData = {}) {
+        // Use manual override locations if set, otherwise use first/last plate locations
+        let startLabel = 'START';
+        let endLabel = 'END';
+        let startCoords = null;
+        let endCoords = null;
         
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-        const minLng = Math.min(...lngs);
-        const maxLng = Math.max(...lngs);
+        // Check for manual overrides
+        if (tripData.startOverride && tripData.startLat && tripData.startLng) {
+            startCoords = { lat: tripData.startLat, lng: tripData.startLng };
+            startLabel = `START: ${tripData.startAddress || 'Manual Location'}`;
+        } else if (locations.length > 0) {
+            startCoords = { lat: locations[0].lat, lng: locations[0].lng };
+            startLabel = `START: ${locations[0].state}`;
+        }
+        
+        if (tripData.endOverride && tripData.endLat && tripData.endLng) {
+            endCoords = { lat: tripData.endLat, lng: tripData.endLng };
+            endLabel = `END: ${tripData.endAddress || 'Manual Location'}`;
+        } else if (locations.length > 0) {
+            endCoords = { lat: locations[locations.length - 1].lat, lng: locations[locations.length - 1].lng };
+            endLabel = `END: ${locations[locations.length - 1].state}`;
+        }
+        
+        // Calculate bounds for the map including manual override points
+        const allLats = locations.map(loc => loc.lat);
+        const allLngs = locations.map(loc => loc.lng);
+        
+        if (startCoords) {
+            allLats.push(startCoords.lat);
+            allLngs.push(startCoords.lng);
+        }
+        if (endCoords) {
+            allLats.push(endCoords.lat);
+            allLngs.push(endCoords.lng);
+        }
+        
+        const minLat = Math.min(...allLats);
+        const maxLat = Math.max(...allLats);
+        const minLng = Math.min(...allLngs);
+        const maxLng = Math.max(...allLngs);
         
         const centerLat = (minLat + maxLat) / 2;
         const centerLng = (minLng + maxLng) / 2;
         
-        // Create markers HTML
-        const markersJS = locations.map((loc, index) => {
-            let color = 'blue';
-            let icon = 'map-pin';
-            let label = `${index + 1}. ${loc.state}`;
-            
-            if (index === 0) {
-                color = 'green';
-                icon = 'play-circle';
-                label = `START: ${loc.state}`;
-            } else if (index === locations.length - 1) {
-                color = 'red';
-                icon = 'flag-checkered';
-                label = `END: ${loc.state}`;
-            }
-            
+        // Build route coordinates for polyline
+        let routeCoords = [];
+        if (startCoords) routeCoords.push(`[${startCoords.lat}, ${startCoords.lng}]`);
+        routeCoords = routeCoords.concat(locations.map(loc => `[${loc.lat}, ${loc.lng}]`));
+        if (endCoords && (!locations.length || endCoords.lat !== locations[locations.length - 1].lat)) {
+            routeCoords.push(`[${endCoords.lat}, ${endCoords.lng}]`);
+        }
+        
+        // Create markers HTML for plate locations
+        const plateMarkersJS = locations.map((loc, index) => {
             return `L.marker([${loc.lat}, ${loc.lng}], {
                 icon: L.divIcon({
                     className: 'custom-marker',
-                    html: '<div style="background: ${color}; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${index + 1}</div>',
-                    iconSize: [30, 30]
+                    html: '<div style="background: #3b82f6; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); font-size: 13px;">${index + 1}</div>',
+                    iconSize: [32, 32]
                 })
-            }).addTo(map).bindPopup('${label}');`;
+            }).addTo(map).bindPopup('<b>${index + 1}. ${loc.state}</b><br>${loc.country.toUpperCase()}');`;
         }).join('\n');
         
-        // Create polyline for the route
-        const routeCoords = locations.map(loc => `[${loc.lat}, ${loc.lng}]`).join(',');
+        // Create start marker
+        let startMarkerJS = '';
+        if (startCoords) {
+            startMarkerJS = `
+            L.marker([${startCoords.lat}, ${startCoords.lng}], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background: #10b981; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); font-size: 20px;">▶</div>',
+                    iconSize: [40, 40]
+                })
+            }).addTo(map).bindPopup('<b>${startLabel}</b>');`;
+        }
+        
+        // Create end marker
+        let endMarkerJS = '';
+        if (endCoords) {
+            endMarkerJS = `
+            L.marker([${endCoords.lat}, ${endCoords.lng}], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background: #ef4444; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); font-size: 20px;">🏁</div>',
+                    iconSize: [40, 40]
+                })
+            }).addTo(map).bindPopup('<b>${endLabel}</b>');`;
+        }
         
         // Create HTML with Leaflet map
         const mapHTML = `
@@ -2043,7 +2098,7 @@ class LicensePlateGame {
     <style>
         body { margin: 0; padding: 0; }
         #map { width: 100%; height: 100vh; }
-        .leaflet-popup-content { font-weight: 600; }
+        .leaflet-popup-content { font-weight: 600; text-align: center; }
     </style>
 </head>
 <body>
@@ -2057,18 +2112,24 @@ class LicensePlateGame {
         }).addTo(map);
         
         // Add route polyline
-        var routeLine = L.polyline([${routeCoords}], {
+        var routeLine = L.polyline([${routeCoords.join(',')}], {
             color: '#fbbf24',
             weight: 4,
-            opacity: 0.7,
+            opacity: 0.8,
             dashArray: '10, 10'
         }).addTo(map);
         
-        // Add markers
-        ${markersJS}
+        // Add plate location markers
+        ${plateMarkersJS}
+        
+        // Add start marker
+        ${startMarkerJS}
+        
+        // Add end marker
+        ${endMarkerJS}
         
         // Fit bounds to show all markers
-        var bounds = L.latLngBounds([${routeCoords}]);
+        var bounds = L.latLngBounds([${routeCoords.join(',')}]);
         map.fitBounds(bounds, { padding: [50, 50] });
     </script>
 </body>
