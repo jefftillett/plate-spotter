@@ -1377,15 +1377,29 @@ class LicensePlateGame {
             stats.firstSpotted = allSpotted[0];
             stats.lastSpotted = allSpotted[allSpotted.length - 1];
             
-            // Calculate average time between plates
+            // Calculate average time between plates (excluding overnight gaps)
             if (allSpotted.length > 1) {
                 let totalTimeDiff = 0;
+                let validIntervals = 0;
+                const OVERNIGHT_THRESHOLD_MS = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+                
                 for (let i = 1; i < allSpotted.length; i++) {
-                    totalTimeDiff += allSpotted[i].timestamp - allSpotted[i - 1].timestamp;
+                    const timeDiff = allSpotted[i].timestamp - allSpotted[i - 1].timestamp;
+                    
+                    // Only count intervals less than 4 hours (excludes overnight stops)
+                    if (timeDiff < OVERNIGHT_THRESHOLD_MS) {
+                        totalTimeDiff += timeDiff;
+                        validIntervals++;
+                    }
                 }
-                const avgMilliseconds = totalTimeDiff / (allSpotted.length - 1);
-                const avgMinutes = Math.round(avgMilliseconds / (1000 * 60));
-                stats.averageTimeBetweenPlates = avgMinutes;
+                
+                if (validIntervals > 0) {
+                    const avgMilliseconds = totalTimeDiff / validIntervals;
+                    const avgMinutes = Math.round(avgMilliseconds / (1000 * 60));
+                    stats.averageTimeBetweenPlates = avgMinutes;
+                } else {
+                    stats.averageTimeBetweenPlates = 0; // No valid intervals (all overnight)
+                }
             }
             
             // Find location (lat/lng area) where most plates were found
