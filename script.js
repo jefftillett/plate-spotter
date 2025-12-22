@@ -848,6 +848,14 @@ class LicensePlateGame {
         const modal = document.getElementById('statsModal');
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
+        
+        // Prevent clicks on modal background from closing
+        modal.addEventListener('click', this.handleModalBackgroundClick.bind(this));
+        
+        // Handle orientation changes
+        window.addEventListener('orientationchange', this.handleOrientationChange.bind(this));
+        window.addEventListener('resize', this.handleOrientationChange.bind(this));
+        
         this.renderStatistics();
         this.triggerHapticFeedback('light');
     }
@@ -856,7 +864,40 @@ class LicensePlateGame {
         const modal = document.getElementById('statsModal');
         modal.classList.remove('active');
         document.body.style.overflow = '';
+        
+        // Remove event listeners
+        modal.removeEventListener('click', this.handleModalBackgroundClick.bind(this));
+        window.removeEventListener('orientationchange', this.handleOrientationChange.bind(this));
+        window.removeEventListener('resize', this.handleOrientationChange.bind(this));
+        
         this.triggerHapticFeedback('light');
+    }
+
+    handleModalBackgroundClick(e) {
+        // Only close if clicking directly on the modal background (not the content)
+        if (e.target.id === 'statsModal') {
+            // Prevent closing - user must use the X button
+            e.stopPropagation();
+            e.preventDefault();
+        }
+    }
+
+    handleOrientationChange() {
+        // Debounce to avoid multiple rapid calls
+        clearTimeout(this.orientationTimeout);
+        this.orientationTimeout = setTimeout(() => {
+            const modal = document.getElementById('statsModal');
+            if (modal && modal.classList.contains('active')) {
+                // Force recalculation of modal dimensions
+                const content = modal.querySelector('.stats-modal-content');
+                if (content) {
+                    // Trigger a reflow
+                    content.style.display = 'none';
+                    content.offsetHeight; // Force reflow
+                    content.style.display = 'flex';
+                }
+            }
+        }, 100);
     }
 
     renderStatistics() {
