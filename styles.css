@@ -2063,8 +2063,8 @@ img[data-src] {
     display: flex;
     align-items: flex-end;
     gap: 8px;
-    height: 250px;
-    padding: 20px;
+    height: 220px;
+    padding: 20px 20px 40px 20px;
     background: rgba(251, 191, 36, 0.05);
     border: 2px solid rgba(251, 191, 36, 0.2);
     border-radius: 12px;
@@ -2074,10 +2074,13 @@ img[data-src] {
 .hourly-bar {
     flex: 0 0 auto;
     min-width: 35px;
+    height: 180px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    justify-content: flex-end;
+    gap: 0;
+    position: relative;
 }
 
 .hourly-bar-fill {
@@ -2085,10 +2088,8 @@ img[data-src] {
     background: linear-gradient(180deg, #10b981 0%, #059669 100%);
     border-radius: 8px 8px 0 0;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    min-height: 20px;
-    padding-top: 6px;
     transition: all 0.3s ease;
     box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
     position: relative;
@@ -2103,6 +2104,7 @@ img[data-src] {
     color: white;
     font-weight: 700;
     font-size: 0.85rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .hourly-bar-label {
@@ -2110,6 +2112,10 @@ img[data-src] {
     font-size: 0.75rem;
     font-weight: 600;
     white-space: nowrap;
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 /* Trip Controls */
