@@ -2063,7 +2063,7 @@ img[data-src] {
     display: flex;
     align-items: flex-end;
     gap: 8px;
-    height: 200px;
+    height: 250px;
     padding: 20px;
     background: rgba(251, 191, 36, 0.05);
     border: 2px solid rgba(251, 191, 36, 0.2);
@@ -2087,9 +2087,16 @@ img[data-src] {
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding-top: 8px;
+    min-height: 20px;
+    padding-top: 6px;
     transition: all 0.3s ease;
     box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+    position: relative;
+}
+
+.hourly-bar-fill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.6);
 }
 
 .hourly-bar-count {

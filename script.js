@@ -1717,7 +1717,10 @@ class LicensePlateGame {
                         <div class="hourly-chart">
                             ${Object.entries(stats.spottedByHour).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([hour, count]) => {
                                 const maxCount = Math.max(...Object.values(stats.spottedByHour));
-                                const heightPercent = (count / maxCount) * 100;
+                                // Scale to use 10-100% of height to maintain proportions
+                                // This ensures small values are visible but still proportionally smaller
+                                const minPercent = 10;
+                                const heightPercent = minPercent + ((count / maxCount) * (100 - minPercent));
                                 const hourNum = parseInt(hour);
                                 const hourLabel = hourNum === 0 ? '12a' : hourNum < 12 ? `${hourNum}a` : hourNum === 12 ? '12p' : `${hourNum - 12}p`;
                                 
